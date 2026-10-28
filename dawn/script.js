@@ -1,224 +1,148 @@
-// Night to Dawn — the sky follows the visitor's scroll from midnight to morning.
+// Night to Dawn — real sky photographs, preloaded, then choreographed with GSAP + ScrollTrigger.
 (() => {
   const { quickExit, calm, esc } = window.BLOOM_COMMON;
   const root = document.documentElement;
   quickExit(document.getElementById("quickExit"));
-  let skyReady = false;
-  const isCalm = calm(document.getElementById("calmBtn"), () => { if (skyReady) { loop(); requestDraw(); } });
+  let ready = false;
+  const isCalm = calm(document.getElementById("calmBtn"), () => { if (ready) build(); });
 
-  /* ---------- sky ---------- */
-  const canvas = document.getElementById("sky");
-  const ctx = canvas.getContext("2d");
-  const palettes = [
-    { p: 0.00, top: [6, 8, 28], bot: [24, 20, 66] },      // midnight
-    { p: 0.22, top: [14, 18, 64], bot: [52, 36, 104] },   // deep night
-    { p: 0.42, top: [44, 40, 112], bot: [178, 86, 124] }, // first light
-    { p: 0.58, top: [104, 98, 168], bot: [255, 150, 112] }, // dawn
-    { p: 0.76, top: [134, 182, 236], bot: [255, 206, 160] }, // sunrise
-    { p: 1.00, top: [150, 208, 255], bot: [232, 246, 255] }, // morning
-  ];
-  const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
-  const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
-  const skyAt = (p) => {
-    let i = 0;
-    while (i < palettes.length - 2 && p > palettes[i + 1].p) i++;
-    const a = palettes[i], b = palettes[i + 1];
-    const t = smooth(0, 1, (p - a.p) / (b.p - a.p));
-    return { top: mix(a.top, b.top, t), bot: mix(a.bot, b.bot, t) };
+  /* ---------- photographs (Unsplash, served at the size each screen needs) ---------- */
+  const photoURL = (id, w) => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&q=75&w=${w}`;
+  const imgs = [...document.querySelectorAll("img[data-photo]")];
+  // Any photo shown full-screen somewhere uses the full-screen sizes everywhere,
+  // so the browser downloads it once and every copy comes from cache.
+  const fullscreen = new Set(
+    imgs.filter((i) => i.closest(".sky, .hero-shot, .band")).map((i) => i.dataset.photo)
+  );
+  imgs.forEach((img) => {
+    const id = img.dataset.photo;
+    const fixed = Number(img.dataset.w);
+    let widths, sizes;
+    if (fullscreen.has(id)) { widths = [960, 1600, 2400]; sizes = "100vw"; }
+    else if (fixed) { widths = [Math.round(fixed * 0.66), fixed]; sizes = `${Math.round(fixed / 2.6)}px`; }
+    else { widths = [640, 1080, 1600]; sizes = "(max-width: 820px) 50vw, 25vw"; }
+    img.sizes = sizes;
+    img.srcset = widths.map((w) => `${photoURL(id, w)} ${w}w`).join(", ");
+    img.src = photoURL(id, widths[1]);
+    img.decoding = "async";
+  });
+
+  /* ---------- loading screen: wait until every photo is downloaded and decoded ---------- */
+  const loader = document.getElementById("loader");
+  const bar = document.getElementById("loaderBar");
+  const text = document.getElementById("loaderText");
+  const skip = document.getElementById("loaderSkip");
+  let loaded = 0;
+  const tickLoad = () => {
+    loaded++;
+    bar.style.transform = `scaleX(${loaded / imgs.length})`;
+    text.textContent = loaded < imgs.length ? `Waiting for the sky… ${Math.round((loaded / imgs.length) * 100)}%` : "Here comes the night.";
   };
-  const rgb = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
-
-  let W = 0, H = 0, dpr = 1, stars = [], clouds = [];
-  const resize = () => {
-    dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-    W = canvas.width = Math.round(innerWidth * dpr);
-    H = canvas.height = Math.round(innerHeight * dpr);
-    const count = Math.round(Math.min(240, innerWidth * innerHeight / 6000));
-    stars = Array.from({ length: count }, () => ({
-      x: Math.random() * W, y: Math.random() * H * 0.92,
-      r: (Math.random() ** 2 * 1.6 + 0.4) * dpr,
-      depth: Math.random() * 0.6 + 0.2,
-      phase: Math.random() * Math.PI * 2, speed: 0.6 + Math.random() * 1.6,
-    }));
-    clouds = Array.from({ length: 6 }, (_, i) => ({
-      x: Math.random() * W, y: H * (0.18 + i * 0.12) + Math.random() * 40 * dpr,
-      w: (220 + Math.random() * 260) * dpr, h: (40 + Math.random() * 40) * dpr,
-      v: (0.08 + Math.random() * 0.18) * dpr,
-    }));
-    requestDraw();
-  };
-
-  let progress = 0;
-  const pointer = { x: -1e4, y: -1e4 };
-  let shooting = null, nextShoot = performance.now() + 4000;
-
-  const draw = (now) => {
-    const p = progress;
-    const sky = skyAt(p);
-    const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, rgb(sky.top));
-    g.addColorStop(1, rgb(sky.bot));
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
-
-    // warm glow on the horizon, strongest at dawn
-    const glow = smooth(0.3, 0.6, p) * (1 - smooth(0.85, 1, p) * 0.6);
-    if (glow > 0.01) {
-      const hg = ctx.createRadialGradient(W * 0.7, H * 1.05, 0, W * 0.7, H * 1.05, Math.max(W, H) * 0.9);
-      hg.addColorStop(0, `rgba(255,170,110,${0.55 * glow})`);
-      hg.addColorStop(0.5, `rgba(255,120,120,${0.18 * glow})`);
-      hg.addColorStop(1, "rgba(255,120,120,0)");
-      ctx.fillStyle = hg;
-      ctx.fillRect(0, 0, W, H);
+  const whenReady = (img) => new Promise((resolve) => {
+    const finish = () => { tickLoad(); resolve(); };
+    const decode = () => (img.decode ? img.decode().catch(() => {}) : Promise.resolve()).then(finish);
+    if (img.complete && img.naturalWidth) decode();
+    else {
+      img.addEventListener("load", decode, { once: true });
+      img.addEventListener("error", finish, { once: true });
     }
+  });
+  // Someone in distress should never be stuck behind a loading screen: cap it, and offer a way past.
+  const cap = new Promise((r) => setTimeout(r, 8000));
+  const skipped = new Promise((r) => skip.addEventListener("click", r, { once: true }));
+  setTimeout(() => { skip.hidden = false; }, 2500);
+  const allPhotos = Promise.all(imgs.map(whenReady));
+  const fonts = document.fonts ? document.fonts.ready : Promise.resolve();
+  Promise.race([Promise.all([allPhotos, fonts]), cap, skipped]).then(() => {
+    loader.classList.add("done");
+    root.classList.remove("loading");
+    ready = true;
+    build();
+  });
 
-    // stars fade as the sky brightens
-    const starVis = 1 - smooth(0.32, 0.62, p);
-    if (starVis > 0.01) {
-      const t = now / 1000;
-      const scrollShift = window.scrollY * dpr;
-      const near = [];
-      for (const s of stars) {
-        const y = ((s.y - scrollShift * s.depth * 0.08) % H + H) % H;
-        let a = (0.55 + 0.45 * Math.sin(t * s.speed + s.phase)) * starVis;
-        const d = Math.hypot(s.x - pointer.x, y - pointer.y);
-        if (d < 150 * dpr) { a = Math.min(1, a + (1 - d / (150 * dpr)) * 0.8 * starVis); near.push([s.x, y]); }
-        ctx.globalAlpha = a;
-        ctx.fillStyle = "#fff";
-        ctx.beginPath(); ctx.arc(s.x, y, s.r, 0, Math.PI * 2); ctx.fill();
-      }
-      // the cursor draws its own constellation from nearby stars
-      if (near.length > 1) {
-        ctx.globalAlpha = 0.35 * starVis;
-        ctx.strokeStyle = "#fff"; ctx.lineWidth = dpr;
-        ctx.beginPath();
-        near.sort((a, b) => a[0] - b[0]);
-        near.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
-        ctx.stroke();
-      }
-      // occasional shooting star
-      if (!isCalm() && !shooting && now > nextShoot && starVis > 0.5) {
-        shooting = { x: Math.random() * W * 0.6 + W * 0.2, y: Math.random() * H * 0.3, t0: now };
-      }
-      if (shooting) {
-        const k = (now - shooting.t0) / 900;
-        if (k >= 1) { shooting = null; nextShoot = now + 5000 + Math.random() * 7000; }
-        else {
-          const len = 160 * dpr, x = shooting.x + k * 380 * dpr, y = shooting.y + k * 160 * dpr;
-          const sg = ctx.createLinearGradient(x, y, x - len, y - len * 0.42);
-          sg.addColorStop(0, `rgba(255,255,255,${(1 - k) * starVis})`);
-          sg.addColorStop(1, "rgba(255,255,255,0)");
-          ctx.globalAlpha = 1; ctx.strokeStyle = sg; ctx.lineWidth = 1.5 * dpr;
-          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - len, y - len * 0.42); ctx.stroke();
-        }
-      }
-      ctx.globalAlpha = 1;
+  /* ---------- scroll choreography ---------- */
+  const hasGSAP = !!(window.gsap && window.ScrollTrigger);
+  if (hasGSAP) gsap.registerPlugin(ScrollTrigger);
+  let ctx;
+
+  function build() {
+    if (!hasGSAP) {
+      // GSAP failed to load: show everything as a plain page.
+      document.querySelectorAll(".reveal").forEach((el) => { el.style.opacity = 1; el.style.transform = "none"; });
+      return;
     }
+    if (ctx) ctx.revert();
+    const still = isCalm();
+    ctx = gsap.context(() => {
+      // 1. The sky: each photograph fades in over the last, midnight → morning.
+      const layers = gsap.utils.toArray(".sky-layer");
+      const sky = gsap.timeline({
+        defaults: { ease: "none" },
+        scrollTrigger: {
+          start: 0, end: "max", scrub: 1.2,
+          onUpdate: (self) => root.classList.toggle("day", self.progress > 0.62),
+        },
+      });
+      layers.slice(1).forEach((layer, i) => {
+        sky.to(layer, { opacity: 1, duration: 1 }, i);
+        if (!still) sky.fromTo(layer, { scale: 1.08 }, { scale: 1, duration: 2 }, i);
+      });
 
-    // the sun climbs from below the horizon
-    const rise = smooth(0.4, 1, p);
-    if (rise > 0) {
-      const r = Math.min(W, H) * 0.085;
-      const sx = W * 0.74, sy = H * (1.12 - rise * 0.82);
-      const halo = ctx.createRadialGradient(sx, sy, r * 0.4, sx, sy, r * 5);
-      halo.addColorStop(0, "rgba(255,214,150,.55)");
-      halo.addColorStop(1, "rgba(255,214,150,0)");
-      ctx.fillStyle = halo; ctx.fillRect(0, 0, W, H);
-      const disc = ctx.createRadialGradient(sx, sy - r * 0.2, 0, sx, sy, r);
-      disc.addColorStop(0, "#fff6dc"); disc.addColorStop(0.55, "#ffc983"); disc.addColorStop(1, "#ff9a6a");
-      ctx.fillStyle = disc; ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.fill();
-    }
-
-    // soft clouds catch the light after first light
-    const cloudVis = smooth(0.35, 0.75, p);
-    if (cloudVis > 0.01) {
-      const tint = mix(sky.bot, [255, 255, 255], 0.55);
-      for (const c of clouds) {
-        if (!isCalm()) c.x = (c.x + c.v + c.w) % (W + c.w * 2) - c.w;
-        const cg = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.w / 2);
-        cg.addColorStop(0, rgb(tint, 0.5 * cloudVis));
-        cg.addColorStop(1, rgb(tint, 0));
-        ctx.save(); ctx.translate(c.x, c.y); ctx.scale(1, c.h / c.w * 2); ctx.translate(-c.x, -c.y);
-        ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(c.x, c.y, c.w / 2, 0, Math.PI * 2); ctx.fill();
-        ctx.restore();
+      // 2. Intro: the full-screen night photo settles into its place in the grid.
+      const intro = document.getElementById("intro");
+      const shot = document.getElementById("heroShot");
+      const shotImg = shot.querySelector("img");
+      const tile = document.getElementById("heroTile");
+      const copy = document.getElementById("heroCopy");
+      const others = gsap.utils.toArray(".mosaic .tile:not(.t-hero)");
+      if (!still) {
+        const insetToTile = () => {
+          const s = intro.getBoundingClientRect(), t = tile.getBoundingClientRect();
+          return `inset(${t.top - s.top}px ${s.right - t.right}px ${s.bottom - t.bottom}px ${t.left - s.left}px round 16px)`;
+        };
+        gsap.set(shot, { clipPath: "inset(0px 0px 0px 0px round 0px)" });
+        gsap.set(shotImg, { scale: 1.12 });
+        gsap.set(others, { opacity: 0, y: 48, scale: 0.94 });
+        gsap.timeline({
+          defaults: { ease: "none" },
+          scrollTrigger: { trigger: intro, start: "top top", end: "+=170%", pin: true, scrub: 1, invalidateOnRefresh: true, anticipatePin: 1 },
+        })
+          .to(copy, { opacity: 0, y: -70, duration: 0.3, ease: "power1.in" }, 0)
+          .to(shot, { clipPath: insetToTile, duration: 1, ease: "power3.inOut" }, 0.05)
+          .to(shotImg, { scale: 1, duration: 1, ease: "power3.inOut" }, 0.05)
+          .to(others, { opacity: 1, y: 0, scale: 1, duration: 0.45, stagger: 0.07, ease: "power2.out" }, 0.55)
+          .to(shot, { opacity: 0, duration: 0.15 }, 1.0)
+          .to({}, { duration: 0.25 }); // a beat of stillness before the page moves on
+      } else {
+        gsap.set(".mosaic", { display: "none" });
       }
-    }
-    return sky;
-  };
 
-  /* ---------- ink follows the sky so text always stays readable ---------- */
-  const lum = (c) => {
-    const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
-    return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
-  };
-  const LIGHT = [243, 239, 255], DARK = [29, 24, 56];
-  let inkDark = null;
-  const updateInk = (sky) => {
-    const mid = mix(sky.top, sky.bot, 0.5);
-    const L = lum(mid);
-    const cLight = (lum(LIGHT) + 0.05) / (L + 0.05);
-    const cDark = (L + 0.05) / (lum(DARK) + 0.05);
-    const dark = cDark > cLight;
-    if (dark === inkDark) return;
-    inkDark = dark;
-    const ink = dark ? DARK : LIGHT, paper = dark ? LIGHT : DARK;
-    root.style.setProperty("--ink", rgb(ink));
-    root.style.setProperty("--ink-soft", rgb(ink, dark ? 0.8 : 0.78));
-    root.style.setProperty("--line", rgb(ink, 0.22));
-    root.style.setProperty("--paper", rgb(paper));
-    document.body.style.backgroundColor = rgb(dark ? [232, 246, 255] : [11, 13, 38]);
-  };
+      // 3. Text eases in as it arrives.
+      if (!still) {
+        gsap.set(".reveal", { opacity: 0, y: 24 });
+        ScrollTrigger.batch(".reveal", {
+          start: "top 88%", once: true,
+          onEnter: (batch) => gsap.to(batch, { opacity: 1, y: 0, duration: 0.9, stagger: 0.08, ease: "power3.out", overwrite: true }),
+        });
+      } else {
+        gsap.set(".reveal", { opacity: 1, y: 0 });
+      }
 
-  /* ---------- clock: 11:48 pm → 7:30 am across the page ---------- */
-  const clock = document.getElementById("clock");
-  const clockBar = document.getElementById("clockBar");
-  const setClock = (p) => {
-    const mins = Math.round(23 * 60 + 48 + p * 462) % 1440;
-    const h = Math.floor(mins / 60), m = mins % 60;
-    clock.textContent = `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "am" : "pm"}`;
-    clockBar.style.setProperty("--p", p.toFixed(3));
-  };
-
-  let drawQueued = false;
-  function requestDraw() {
-    if (drawQueued) return;
-    drawQueued = true;
-    requestAnimationFrame((t) => { drawQueued = false; frame(t); });
-  }
-  // The header borrows the top of the sky so text never scrolls under bare words.
-  const barEl = document.getElementById("bar");
-  let barColor = "";
-  const frame = (t) => {
-    const max = document.documentElement.scrollHeight - innerHeight;
-    progress = max > 0 ? Math.min(1, Math.max(0, scrollY / max)) : 0;
-    const sky = draw(t);
-    updateInk(sky);
-    setClock(progress);
-    const c = scrollY > 40 ? rgb(sky.top, 0.92) : "transparent";
-    if (c !== barColor) { barColor = c; barEl.style.backgroundColor = c; }
-  };
-  // Continuous animation unless calm mode is on; calm mode redraws only on scroll.
-  let looping = false;
-  function loop() {
-    if (looping || isCalm()) return;
-    looping = true;
-    requestAnimationFrame(function tick(n) {
-      if (isCalm() || document.hidden) { looping = false; return; }
-      frame(n);
-      requestAnimationFrame(tick);
+      // 4. Nature photographs drift slower than the page, like looking through a window.
+      if (!still) {
+        gsap.utils.toArray(".band").forEach((band) => {
+          gsap.fromTo(band.querySelector("img"), { yPercent: -9 }, {
+            yPercent: 9, ease: "none",
+            scrollTrigger: { trigger: band, start: "top bottom", end: "bottom top", scrub: true },
+          });
+        });
+      }
     });
+    ScrollTrigger.refresh();
   }
-  window.addEventListener("resize", resize);
-  window.addEventListener("scroll", () => { if (isCalm()) requestDraw(); }, { passive: true });
-  document.addEventListener("visibilitychange", loop);
-  window.addEventListener("pointermove", (e) => { pointer.x = e.clientX * dpr; pointer.y = e.clientY * dpr; }, { passive: true });
-  document.addEventListener("pointerleave", () => { pointer.x = pointer.y = -1e4; });
-  resize();
-  skyReady = true;
-  loop();
 
   /* ---------- header ---------- */
-  const bar = document.getElementById("bar");
+  const barEl = document.getElementById("bar");
   const menuBtn = document.getElementById("menuBtn");
   const menu = document.getElementById("menu");
   const setMenu = (open) => { menu.classList.toggle("open", open); menuBtn.setAttribute("aria-expanded", String(open)); };
@@ -227,74 +151,38 @@
   let lastY = scrollY;
   window.addEventListener("scroll", () => {
     const y = scrollY;
-    bar.classList.toggle("tucked", y > lastY && y > 240 && !menu.classList.contains("open"));
+    barEl.classList.toggle("solid", y > 40);
+    barEl.classList.toggle("tucked", y > lastY && y > 240 && !menu.classList.contains("open"));
     lastY = y;
   }, { passive: true });
 
-  /* ---------- whispered affirmations ---------- */
-  const whisper = document.getElementById("whisper");
-  const words = [
-    "You deserve nourishment and rest.",
-    "Your worth was never measured in numbers.",
-    "Small steps still move you forward.",
-    "It's okay to ask for help today.",
-    "A hard day is not a failed recovery.",
-    "You are allowed to take up space.",
-  ];
-  let wi = 0;
-  setInterval(() => {
-    whisper.classList.add("swap");
-    setTimeout(() => { wi = (wi + 1) % words.length; whisper.textContent = words[wi]; whisper.classList.remove("swap"); }, 400);
-  }, 4200);
-
-  /* ---------- reveal on scroll, staggered within each group ---------- */
-  const io = new IntersectionObserver((entries) => {
-    entries.filter((e) => e.isIntersecting).forEach((e, i) => {
-      e.target.style.setProperty("--d", `${i * 70}ms`);
-      e.target.classList.add("in");
-      io.unobserve(e.target);
-    });
-  }, { rootMargin: "0px 0px -8% 0px" });
-  document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
-
-  /* ---------- breathing sun ---------- */
-  const stage = document.getElementById("sunStage");
+  /* ---------- breathing sunrise ---------- */
+  const sunWin = document.getElementById("sunWindow");
   const cue = document.getElementById("sunCue");
-  const steps = [["Breathe in…", "up", 4000], ["Hold…", "up", 4000], ["Breathe out…", "down", 6000]];
+  const steps = [["Breathe in…", "in", 4000], ["Hold…", "in", 4000], ["Breathe out…", "out", 6000]];
   let breathing = false, timer;
   const step = (i) => {
-    const [label, dir, ms] = steps[i];
+    const [label, state, ms] = steps[i];
     cue.textContent = label;
-    stage.classList.toggle("up", dir === "up");
-    stage.classList.toggle("down", dir === "down");
+    sunWin.classList.toggle("in", state === "in");
+    sunWin.classList.toggle("out", state === "out");
     timer = setTimeout(() => step((i + 1) % steps.length), ms);
   };
-  stage.addEventListener("click", () => {
+  sunWin.addEventListener("click", () => {
     breathing = !breathing;
     clearTimeout(timer);
     if (breathing) step(0);
-    else { stage.classList.remove("up", "down"); cue.textContent = "Tap the sun to begin"; }
+    else { sunWin.classList.remove("in", "out"); cue.textContent = "Tap the sunrise to begin"; }
   });
 
-  /* ---------- 5-4-3-2-1 constellation ---------- */
-  const starsEls = [...document.querySelectorAll(".star")];
-  const constLine = document.getElementById("constLine");
-  const pts = constLine.getAttribute("points").split(" ").map((s) => s.split(",").map(Number));
-  const seg = pts.slice(1).map((p, i) => Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1]));
-  const total = seg.reduce((a, b) => a + b, 0);
+  /* ---------- 5-4-3-2-1 ---------- */
+  const checks = [...document.querySelectorAll("#groundList input")];
   const groundDone = document.getElementById("groundDone");
-  starsEls.forEach((s) => s.addEventListener("click", () => {
-    s.classList.toggle("lit");
-    const lit = starsEls.filter((x) => x.classList.contains("lit")).length;
-    const drawn = seg.slice(0, Math.max(0, lit - 1)).reduce((a, b) => a + b, 0) / total;
-    constLine.style.strokeDashoffset = String(1 - drawn);
-    groundDone.classList.toggle("show", lit === starsEls.length);
-  }));
+  checks.forEach((c) => c.addEventListener("change", () => groundDone.classList.toggle("show", checks.every((x) => x.checked))));
 
   /* ---------- myths ---------- */
   document.querySelectorAll(".myth button").forEach((b) => b.addEventListener("click", () => {
-    const li = b.closest(".myth");
-    const on = li.classList.toggle("struck");
+    const on = b.closest(".myth").classList.toggle("struck");
     b.setAttribute("aria-expanded", String(on));
   }));
 
@@ -336,7 +224,7 @@
   window.addEventListener("resize", syncPill);
   document.fonts && document.fonts.ready.then(syncPill);
 
-  /* ---------- notes floating in the sky ---------- */
+  /* ---------- notes pinned to the board ---------- */
   const board = document.getElementById("board");
   const seed = [
     "You made it through every hard day so far.",
@@ -352,12 +240,8 @@
   const place = (text, x, y, record) => {
     const n = document.createElement("div");
     n.className = "note"; n.textContent = text;
-    n.style.left = `${x}%`; n.style.top = `${y}%`;
-    n.style.setProperty("--dur", `${rand(7, 12).toFixed(1)}s`);
-    n.style.setProperty("--dx", `${rand(-14, 14).toFixed(0)}px`);
-    n.style.setProperty("--dy", `${rand(-12, 12).toFixed(0)}px`);
+    n.style.setProperty("--r", `${rand(-3, 3).toFixed(1)}deg`);
     board.appendChild(n);
-    // keep the note fully inside the board, whatever the screen width
     const maxX = Math.max(0, (1 - n.offsetWidth / board.clientWidth) * 100);
     const maxY = Math.max(0, (1 - n.offsetHeight / board.clientHeight) * 100);
     n.style.left = `${Math.min(x, maxX)}%`; n.style.top = `${Math.min(y, maxY)}%`;
@@ -384,16 +268,14 @@
   };
   const cols = board.clientWidth < 600 ? 2 : 3;
   const rows = Math.ceil(seed.length / cols);
-  seed.forEach((t, i) => place(t,
-    3 + (i % cols) * (96 / cols) + rand(0, 4),
-    5 + Math.floor(i / cols) * (90 / rows) + rand(0, 6)));
+  seed.forEach((t, i) => place(t, 3 + (i % cols) * (96 / cols) + rand(0, 4), 5 + Math.floor(i / cols) * (90 / rows) + rand(0, 6)));
   saved.forEach((r) => place(r.text, r.x, r.y, r));
   document.getElementById("noteForm").addEventListener("submit", (e) => {
     e.preventDefault();
     const input = document.getElementById("noteInput");
-    const text = input.value.trim();
-    if (!text) return;
-    const r = { text, x: rand(5, 60), y: rand(10, 65) };
+    const t = input.value.trim();
+    if (!t) return;
+    const r = { text: t, x: rand(5, 60), y: rand(10, 65) };
     saved.push(r); persist(); place(r.text, r.x, r.y, r);
     input.value = "";
   });

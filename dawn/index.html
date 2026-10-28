@@ -5,14 +5,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Bloom Within — Night to Dawn</title>
   <meta name="description" content="Gentle help, resources and support for anyone affected by an eating disorder. However dark it feels, morning comes.">
+  <link rel="preconnect" href="https://images.unsplash.com">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
-  <script>document.documentElement.classList.add("js");</script>
+  <script>document.documentElement.classList.add("js", "loading");</script>
 </head>
 <body>
-  <canvas id="sky" aria-hidden="true"></canvas>
+  <!-- Loading screen: fades out once every photo is downloaded and decoded (never longer than 8s) -->
+  <div class="loader" id="loader" role="status" aria-live="polite">
+    <p class="loader-mark">Bloom Within</p>
+    <div class="loader-track"><i id="loaderBar"></i></div>
+    <p class="loader-text" id="loaderText">Waiting for the sky…</p>
+    <button class="loader-skip" id="loaderSkip" hidden>Skip — show me the page</button>
+  </div>
+
+  <!-- The real sky: five photographs, crossfaded from midnight to morning as you scroll -->
+  <div class="sky" aria-hidden="true">
+    <img class="sky-layer" data-photo="1465101046530-73398c7f28ca" alt="">
+    <img class="sky-layer" data-photo="1457167789633-ff2233ef2b0a" alt="">
+    <img class="sky-layer" data-photo="1534271057238-c2c170a76672" alt="">
+    <img class="sky-layer" data-photo="1577337473192-fec17938c468" alt="">
+    <img class="sky-layer" data-photo="1601345459799-245d61f56121" alt="">
+    <div class="sky-scrim"></div>
+  </div>
 
   <a class="quick-exit" href="https://www.google.com/search?q=weather" rel="noreferrer" id="quickExit">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>Quick exit
@@ -21,7 +38,7 @@
   <header class="bar" id="bar">
     <a href="#top" class="mark">Bloom Within</a>
     <nav aria-label="Sections">
-      <button class="menu" id="menuBtn" aria-expanded="false" aria-controls="menu">Menu</button>
+      <button class="pill menu" id="menuBtn" aria-expanded="false" aria-controls="menu">Menu</button>
       <ul id="menu">
         <li><a href="#breathe">Breathe</a></li>
         <li><a href="#know">Understand</a></li>
@@ -30,56 +47,64 @@
         <li><a href="#support">Support someone</a></li>
       </ul>
     </nav>
-    <button class="calm-btn" id="calmBtn" aria-pressed="false">Calm mode</button>
+    <button class="pill" id="calmBtn" aria-pressed="false">Calm mode</button>
   </header>
 
-  <!-- Scroll timeline: how far through the night the visitor is -->
-  <div class="timeline" aria-hidden="true"><span id="clock">11:48 pm</span><i id="clockBar"></i></div>
-
   <main id="top">
-    <section class="hero">
-      <h1 class="hero-title" aria-label="You are not alone.">
-        <span class="line"><span>You are</span></span>
-        <span class="line"><span>not alone.</span></span>
-      </h1>
-      <p class="hero-sub reveal">Eating disorders are serious, treatable illnesses — not choices, not vanity, not your fault. However dark it feels right now, morning comes. Scroll, and watch it arrive.</p>
-      <div class="hero-actions reveal">
-        <a href="#help" class="btn btn-solid">Find help now</a>
-        <a href="#breathe" class="btn btn-line">Breathe with me first</a>
+    <!-- Pinned intro: the full-screen night photo settles into a grid of morning -->
+    <section class="intro" id="intro">
+      <div class="mosaic" id="mosaic">
+        <figure class="tile t-hero" id="heroTile"><img data-photo="1465101046530-73398c7f28ca" alt="The Milky Way over a dark line of trees"></figure>
+        <figure class="tile t-a"><img data-photo="1457167789633-ff2233ef2b0a" alt="Trees in silhouette as the sky turns blue before dawn"></figure>
+        <figure class="tile t-b"><img data-photo="1503919483171-9ffc1debc390" alt="Small white flowers backlit by early sun"></figure>
+        <figure class="tile t-c"><img data-photo="1497250681960-ef046c08a56e" alt="Bright green fern fronds"></figure>
+        <figure class="tile t-d"><img data-photo="1528901326763-e9bbffd31784" alt="Dewdrops on grass stems in golden light"></figure>
+        <figure class="tile t-e"><img data-photo="1591421264188-cda9b04a6414" alt="Yellow wildflowers covered in morning dew"></figure>
+        <figure class="tile t-f"><img data-photo="1534271057238-c2c170a76672" alt="Pink clouds lit by the rising sun"></figure>
+        <div class="tile t-cap" id="mosaicCaption">
+          <p>Morning doesn't arrive all at once. It comes in small, ordinary things — light on a leaf, dew on a flower. Recovery is like that too.</p>
+        </div>
       </div>
-      <p class="whisper reveal" aria-live="polite"><span id="whisper">You deserve nourishment and rest.</span></p>
+
+      <div class="hero-shot" id="heroShot" aria-hidden="true"><img data-photo="1465101046530-73398c7f28ca" alt=""></div>
+      <div class="hero-copy" id="heroCopy">
+        <h1>You are not alone.</h1>
+        <p>Eating disorders are serious, treatable illnesses — not choices, not vanity, not your fault. However dark it feels right now, morning comes.</p>
+        <div class="hero-actions">
+          <a href="#help" class="btn btn-solid">Find help now</a>
+          <a href="#breathe" class="btn btn-line">Breathe with me first</a>
+        </div>
+        <p class="scroll-cue" aria-hidden="true">Scroll slowly</p>
+      </div>
     </section>
 
     <section id="breathe" class="chapter">
       <div class="chapter-head reveal">
-        <h2>Let the sun rise with your breath</h2>
-        <p>In for four as it climbs. Hold for four. Out for six as it settles. Repeat as long as you need.</p>
+        <h2>Breathe with the sunrise</h2>
+        <p>In for four as the light grows. Hold for four. Out for six as it softens. Repeat as long as you need.</p>
       </div>
       <div class="sunrise reveal">
-        <button class="sun-stage" id="sunStage" aria-label="Start or stop the breathing exercise">
-          <span class="ring r3"></span><span class="ring r2"></span><span class="ring r1"></span>
-          <span class="sun" id="sun"></span>
-          <span class="horizon"></span>
+        <button class="sun-window" id="sunWindow" aria-label="Start or stop the breathing exercise">
+          <img data-photo="1577337473192-fec17938c468" data-w="900" alt="">
         </button>
-        <p class="sun-cue" id="sunCue" aria-live="polite">Tap the sun to begin</p>
+        <p class="sun-cue" id="sunCue" aria-live="polite">Tap the sunrise to begin</p>
       </div>
 
       <div class="ground reveal">
-        <h3>Or find your way back with 5‑4‑3‑2‑1</h3>
-        <p>Tap each star once you've noticed it. Watch the constellation form.</p>
-        <div class="constellation" id="constellation">
-          <svg class="const-lines" viewBox="0 0 1000 200" preserveAspectRatio="none" aria-hidden="true">
-            <polyline id="constLine" points="100,120 300,60 500,140 700,50 900,110" pathLength="1"/>
-          </svg>
-          <button class="star" style="--x:10%;--y:60%"><b>5</b><span>things you can see</span></button>
-          <button class="star" style="--x:30%;--y:30%"><b>4</b><span>things you can touch</span></button>
-          <button class="star" style="--x:50%;--y:70%"><b>3</b><span>things you can hear</span></button>
-          <button class="star" style="--x:70%;--y:25%"><b>2</b><span>things you can smell</span></button>
-          <button class="star" style="--x:90%;--y:55%"><b>1</b><span>kind thing to say to yourself</span></button>
-        </div>
+        <h3>Or come back to the room with 5‑4‑3‑2‑1</h3>
+        <p>Check each one off once you've noticed it.</p>
+        <ul class="ground-list" id="groundList">
+          <li><label><input type="checkbox"><span><b>5</b> things you can see</span></label></li>
+          <li><label><input type="checkbox"><span><b>4</b> things you can touch</span></label></li>
+          <li><label><input type="checkbox"><span><b>3</b> things you can hear</span></label></li>
+          <li><label><input type="checkbox"><span><b>2</b> things you can smell</span></label></li>
+          <li><label><input type="checkbox"><span><b>1</b> kind thing to say to yourself</span></label></li>
+        </ul>
         <p class="ground-done" id="groundDone">You're here. Right now. That's enough.</p>
       </div>
     </section>
+
+    <figure class="band" aria-hidden="true"><img data-photo="1531156992292-d36397ee9184" alt=""></figure>
 
     <section id="know" class="chapter">
       <div class="chapter-head reveal">
@@ -113,7 +138,7 @@
     <section id="myths" class="chapter">
       <div class="chapter-head reveal">
         <h2>Some things we've been told aren't true</h2>
-        <p>Tap a myth to cross it out.</p>
+        <p>Tap a myth to see the truth.</p>
       </div>
       <ol class="myths">
         <li class="myth reveal"><button aria-expanded="false"><span class="myth-text">Eating disorders are a choice.</span></button>
@@ -130,6 +155,8 @@
           <div class="truth-wrap"><p class="truth">Food is often where distress shows up. Underneath can be anxiety, control, trauma, grief or identity.</p></div></li>
       </ol>
     </section>
+
+    <figure class="band" aria-hidden="true"><img data-photo="1546473491-cc3f5bba6705" alt=""></figure>
 
     <section id="help" class="chapter">
       <div class="chapter-head reveal">
@@ -163,24 +190,29 @@
 
     <section id="notes" class="chapter">
       <div class="chapter-head reveal">
-        <h2>Leave a note in the morning sky</h2>
+        <h2>Leave a note for the morning</h2>
         <p>Drag them anywhere. Write your own — it stays only on this device.</p>
       </div>
-      <div class="sky-board reveal" id="board"></div>
+      <div class="board reveal" id="board"></div>
       <form class="note-form reveal" id="noteForm">
         <label class="sr" for="noteInput">Write a kind note</label>
         <input id="noteInput" maxlength="90" placeholder="Something kind for future you…" autocomplete="off">
-        <button class="btn btn-solid" type="submit">Let it float</button>
+        <button class="btn btn-solid" type="submit">Pin it</button>
       </form>
     </section>
   </main>
 
   <footer class="close">
-    <p class="close-big reveal">Recovery is possible.<br>So are you.</p>
-    <p>This site offers information and support, not medical advice. Please reach out to a qualified professional.</p>
-    <p>Press <kbd>Esc</kbd> twice to leave quickly.</p>
+    <figure class="band band-close" aria-hidden="true"><img data-photo="1470240731273-7821a6eeb6bd" alt=""></figure>
+    <div class="close-inner">
+      <p class="close-big reveal">Recovery is possible.<br>So are you.</p>
+      <p>This site offers information and support, not medical advice. Please reach out to a qualified professional.</p>
+      <p>Press <kbd>Esc</kbd> twice to leave quickly. Photographs from <a href="https://unsplash.com" rel="noopener" target="_blank">Unsplash</a>.</p>
+    </div>
   </footer>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   <script src="../shared/helplines.js"></script>
   <script src="script.js"></script>
   <script src="../shared/switcher.js" data-root="../"></script>

@@ -6,7 +6,10 @@ Plain HTML, CSS and JavaScript — no build step. Open `index.html` or host it w
 Every page has a "Try another look" switcher to compare the four designs:
 
 - `/` — the original (particles, gradients, flip cards)
-- `/dawn/` — Night to Dawn: the sky turns from midnight to morning as you scroll
+- `/dawn/` — Night to Dawn: real sky photographs crossfade from midnight to morning as you scroll.
+  Uses GSAP + ScrollTrigger (from cdnjs) for the pinned hero-to-grid intro, and waits behind a
+  loading screen until every photo is downloaded and decoded (8s maximum, with a skip link).
+  Photos are free-licence images from Unsplash, loaded from images.unsplash.com.
 - `/garden/` — Living Garden: colour fields, a vine that grows with scroll, swaying flowers
 - `/collage/` — Paper Collage: torn-paper zine with draggable word magnets and stickers
 
