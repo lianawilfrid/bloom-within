@@ -9,6 +9,9 @@ Plain HTML, CSS and JavaScript — no build step. Open `index.html` or host it w
 - `style.css` — design
 - `script.js` — photo loading, scroll animation (GSAP + ScrollTrigger from cdnjs), breathing, helplines, notes
 - `shared/helplines.js` — helpline numbers, quick exit and calm mode
+- `shared/resources.js` — communities, books, podcasts, research and the nourishment data
+- `shared/sound.js` — every sound effect and the calm music, generated live with the Web Audio API (no audio files)
+- `videos/` — ocean footage for "Ride the wave", from Mixkit (free licence, no attribution required)
 
 The page waits behind a loading screen until every photo is downloaded and decoded
 (8 seconds maximum, with a skip link). Photos are free-licence images from Unsplash,

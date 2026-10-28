@@ -1,6 +1,7 @@
 // Night to Dawn — real sky photographs, preloaded, then choreographed with GSAP + ScrollTrigger.
 (() => {
   const { quickExit, calm, esc } = window.BLOOM_COMMON;
+  const S = window.BLOOM_SOUND;
   const root = document.documentElement;
   quickExit(document.getElementById("quickExit"));
   let ready = false;
@@ -66,7 +67,11 @@
 
   /* ---------- scroll choreography ---------- */
   const hasGSAP = !!(window.gsap && window.ScrollTrigger);
-  if (hasGSAP) gsap.registerPlugin(ScrollTrigger);
+  if (hasGSAP) {
+    gsap.registerPlugin(ScrollTrigger);
+    ScrollTrigger.config({ ignoreMobileResize: true }); // the phone's address bar sliding away shouldn't jolt the page
+  }
+  const touch = window.matchMedia("(pointer: coarse)").matches;
   let ctx;
 
   /* ---------- Lenis: weighted, smooth scrolling that drives ScrollTrigger from GSAP's own clock ---------- */
@@ -199,7 +204,11 @@
         gsap.set(others, { opacity: 0, y: 48, scale: 0.94 });
         gsap.timeline({
           defaults: { ease: "none" },
-          scrollTrigger: { trigger: intro, start: "top top", end: "+=170%", pin: true, scrub: 1, invalidateOnRefresh: true, anticipatePin: 1 },
+          // On phones a finger flick should carry you through in one go: a shorter pin that snaps to its end.
+          scrollTrigger: {
+            trigger: intro, start: "top top", end: touch ? "+=90%" : "+=170%", pin: true, scrub: touch ? 0.35 : 1, invalidateOnRefresh: true, anticipatePin: 1,
+            snap: touch ? { snapTo: [0, 1], duration: { min: 0.25, max: 0.6 }, delay: 0.05, ease: "power2.inOut" } : false,
+          },
         })
           .to(copy, { opacity: 0, y: -70, duration: 0.3, ease: "power1.in" }, 0)
           .to(shot, { clipPath: insetToTile, duration: 1, ease: "power3.inOut" }, 0.05)
@@ -242,31 +251,88 @@
   const setMenu = (open) => { menu.classList.toggle("open", open); menuBtn.setAttribute("aria-expanded", String(open)); };
   menuBtn.addEventListener("click", () => setMenu(!menu.classList.contains("open")));
   menu.querySelectorAll("a").forEach((a) => a.addEventListener("click", () => setMenu(false)));
-  let lastY = scrollY;
-  window.addEventListener("scroll", () => {
-    const y = scrollY;
-    barEl.classList.toggle("solid", y > 40);
-    barEl.classList.toggle("tucked", y > lastY && y > 240 && !menu.classList.contains("open"));
-    lastY = y;
-  }, { passive: true });
+  // the header stays put; it only turns solid once there's page behind it
+  window.addEventListener("scroll", () => barEl.classList.toggle("solid", scrollY > 40), { passive: true });
 
-  /* ---------- breathing sunrise ---------- */
+  /* ---------- colour themes: dark (follows the sky), light, pink ---------- */
+  const themes = [["dark", "Dark"], ["light", "Light"], ["pink", "Pink"]];
+  const themeBtn = document.getElementById("themeBtn");
+  const showTheme = () => {
+    const cur = root.dataset.theme || "dark", [, label] = themes.find(([k]) => k === cur);
+    themeBtn.querySelector(".tool-label").textContent = label;
+    themeBtn.setAttribute("aria-label", `Colour theme: ${label}. Tap to change`);
+  };
+  themeBtn.addEventListener("click", () => {
+    const i = themes.findIndex(([k]) => k === (root.dataset.theme || "dark"));
+    const next = themes[(i + 1) % themes.length][0];
+    if (next === "dark") delete root.dataset.theme; else root.dataset.theme = next;
+    try { localStorage.setItem("bloom-theme", next === "dark" ? "" : next); } catch (e) {}
+    showTheme();
+  });
+  showTheme();
+
+  /* ---------- sound panel ---------- */
+  const soundBtn = document.getElementById("soundBtn");
+  const panel = document.getElementById("soundPanel");
+  const sfxT = document.getElementById("sfxToggle"), musicT = document.getElementById("musicToggle"), volT = document.getElementById("volume");
+  const setPanel = (open) => { panel.hidden = !open; soundBtn.setAttribute("aria-expanded", String(open)); };
+  soundBtn.addEventListener("click", (e) => { e.stopPropagation(); setPanel(panel.hidden); });
+  document.addEventListener("click", (e) => { if (!panel.hidden && !e.target.closest(".sound")) setPanel(false); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") setPanel(false); });
+  sfxT.addEventListener("change", () => { S.setSfx(sfxT.checked); if (sfxT.checked) S.pop(); });
+  musicT.addEventListener("change", () => S.setMusic(musicT.checked));
+  volT.addEventListener("input", () => S.setVolume(volT.value / 100));
+  document.getElementById("muteAll").addEventListener("click", () => S.muteAll());
+  S.onChange((st) => {
+    sfxT.checked = st.sfx; musicT.checked = st.music; volT.value = Math.round(st.vol * 100);
+    const silent = !st.sfx && !st.music;
+    soundBtn.classList.toggle("muted", silent);
+    soundBtn.querySelector(".tool-label").textContent = silent ? "Sound off" : "Sound";
+    soundBtn.setAttribute("aria-label", silent ? "Sound is off. Open sound settings" : "Sound settings");
+  });
+
+  /* ---------- breathing sunrise: the light, a ring and drifting motes show when to breathe ---------- */
   const sunWin = document.getElementById("sunWindow");
+  const breath = document.getElementById("breath");
   const cue = document.getElementById("sunCue");
-  const steps = [["Breathe in…", "in", 4000], ["Hold…", "in", 4000], ["Breathe out…", "out", 6000]];
-  let breathing = false, timer;
+  const ring = document.getElementById("ringFill");
+  const guide = [...document.querySelectorAll("#breathGuide .phase")];
+  const countEl = document.getElementById("breathCount");
+  document.getElementById("motes").innerHTML = Array.from({ length: 14 }, (_, i) =>
+    `<i style="--a:${(i * 360) / 14}deg;--d:${(i % 3) * 0.45}s"></i>`).join("");
+  const steps = [["Breathe in", "in", 4000], ["Hold", "hold", 4000], ["Breathe out", "out", 6000]];
+  let breathing = false, timer, ticker;
   const step = (i) => {
     const [label, state, ms] = steps[i];
     cue.textContent = label;
-    sunWin.classList.toggle("in", state === "in");
+    breath.dataset.phase = state;
+    sunWin.classList.toggle("in", state !== "out");
     sunWin.classList.toggle("out", state === "out");
+    guide.forEach((g, k) => g.classList.toggle("on", k === i));
+    // the ring fills as you breathe in, stays full while you hold, empties as you breathe out
+    ring.style.transitionDuration = state === "hold" ? "0s" : `${ms}ms`;
+    ring.style.strokeDashoffset = state === "out" ? "100" : "0";
+    // one dot for every second of this breath
+    const secs = ms / 1000;
+    countEl.innerHTML = Array.from({ length: secs }, () => "<i></i>").join("");
+    const dots = [...countEl.children];
+    let n = 0;
+    clearInterval(ticker);
+    dots[0].classList.add("on");
+    ticker = setInterval(() => { n++; if (dots[n]) dots[n].classList.add("on"); }, 1000);
     timer = setTimeout(() => step((i + 1) % steps.length), ms);
   };
   sunWin.addEventListener("click", () => {
     breathing = !breathing;
-    clearTimeout(timer);
+    clearTimeout(timer); clearInterval(ticker);
+    breath.classList.toggle("going", breathing);
     if (breathing) step(0);
-    else { sunWin.classList.remove("in", "out"); cue.textContent = "Tap the sunrise to begin"; }
+    else {
+      sunWin.classList.remove("in", "out"); delete breath.dataset.phase;
+      guide.forEach((g) => g.classList.remove("on")); countEl.innerHTML = "";
+      ring.style.transitionDuration = "1s"; ring.style.strokeDashoffset = "100";
+      cue.textContent = "Tap the sunrise to begin";
+    }
   });
 
   /* ---------- 5-4-3-2-1 on real water: a full-resolution photo, rippled on the GPU ---------- */
@@ -457,12 +523,12 @@
       const fx = e.detail ? (e.clientX - r.left) / r.width : 0.3 + Math.random() * 0.4;
       const wl = waterline();
       const fy = Math.max(wl + 0.06, e.detail ? (e.clientY - r.top) / r.height : wl + 0.1 + Math.random() * (0.85 - wl));
-      drop(fx, fy, 1.2);
+      drop(fx, fy, 1.2); S.drop(1.2);
       setTimeout(() => drop(fx + (Math.random() - .5) * .05, fy + (Math.random() - .5) * .05, .5), 140); // a little splash-back
       count++;
       renderDots();
       if (count >= senses[stage][0]) {
-        setTimeout(() => drop(0.5, Math.min(0.9, waterline() + (1 - waterline()) * 0.45), 3), 260); // one big ripple to close each sense
+        setTimeout(() => { drop(0.5, Math.min(0.9, waterline() + (1 - waterline()) * 0.45), 3); S.drop(2.4); }, 260); // one big ripple to close each sense
         stage++; count = 0;
         swap(() => {
           if (stage < senses.length) { show(); changeWater(senses[stage][2], senses[stage][3]); }
@@ -474,7 +540,7 @@
 
     // a raindrop now and then while the pond is on screen, so the water feels alive
     new IntersectionObserver(([en]) => { visible = en.isIntersecting; }).observe(pond);
-    setInterval(() => { if (gpu && visible && !isCalm() && !document.hidden && !isRunning()) { const wl = waterline(); drop(Math.random(), wl + 0.08 + Math.random() * (0.9 - wl), 0.4); } }, 3500);
+    setInterval(() => { if (gpu && visible && !isCalm() && !document.hidden && !isRunning()) { const wl = waterline(); drop(Math.random(), wl + 0.08 + Math.random() * (0.9 - wl), 0.4); S.drop(0.35); } }, 3500);
     show();
   }
 
@@ -599,6 +665,7 @@
       lit = nowLit;
       syncFlies();
       fresh.forEach(celebrate);
+      if (fresh.length) S.twinkle();
       if (!plate.size) { nNote.textContent = "Choose a food to see what it brings."; bNote.textContent = "Your whole body is listening."; }
       else bNote.textContent = `${lit.size} ${lit.size === 1 ? "part of you is" : "parts of you are"} glowing. Tap one to hear what it's saying.`;
     }
@@ -620,7 +687,7 @@
     spots.addEventListener("click", (e) => {
       const b = e.target.closest(".spot"); if (!b) return;
       const p = N.parts[b.dataset.k];
-      if (lit.has(b.dataset.k)) celebrate(b.dataset.k);
+      if (lit.has(b.dataset.k)) { celebrate(b.dataset.k); S.twinkle(); }
       const helpers = [...new Set(Object.entries(N.nutrients).filter(([k, n]) => n.parts.includes(b.dataset.k) && foodsWith(k).length).flatMap(([k]) => foodsWith(k)))];
       bNote.innerHTML = helpers.length
         ? `<b>${esc(p.label)}:</b> "${esc(p.thanks)}" <span class="from">Thanks to ${esc(listWords(helpers))}.</span>`
@@ -646,8 +713,6 @@
   /* ---------- ride the wave: an urge-surfing timer that draws your own wave as you rate it ---------- */
   const surf = (() => {
     const stage = document.getElementById("surfStage");
-    const cv = document.getElementById("surfCanvas");
-    const sctx = cv.getContext("2d");
     const timeEl = document.getElementById("surfTime");
     const msgEl = document.getElementById("surfMsg");
     const level = document.getElementById("surfLevel");
@@ -666,21 +731,19 @@
       [1200, "Twenty minutes. You're riding it out."],
       [1800, "Thirty minutes. Look how far you've come."],
     ];
-    let t0 = 0, points = [], timer = null, visible = false, raf = 0, said = -1;
+    let t0 = 0, points = [], timer = null, visible = false, said = -1;
     let waves = 0;
     try { waves = Number(localStorage.getItem("bloom-waves") || 0); } catch (e) {}
     const showCount = () => { countEl.textContent = waves ? `Waves you've ridden on this device: ${waves}. Each one counts.` : ""; };
     showCount();
     const elapsed = () => (t0 ? (Date.now() - t0) / 1000 : 0);
     const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
-    const size = () => { const d = Math.min(2, devicePixelRatio || 1); cv.width = stage.clientWidth * d; cv.height = stage.clientHeight * d; sctx.setTransform(d, 0, 0, d, 0, 0); };
     const log = () => {
       if (!t0) return;
       points.push({ t: elapsed(), v: Number(level.value) });
       const peak = Math.max(...points.map((p) => p.v)), now = points[points.length - 1].v;
       if (points.length > 1 && now < peak) msgEl.textContent = `It's down from ${peak} to ${now}. The wave is already falling.`;
       else if (points.length > 1 && now >= peak) msgEl.textContent = "This might be the crest. Breathe into it — crests don't last.";
-      draw();
     };
     level.addEventListener("input", () => { levelOut.textContent = level.value; });
     let lt;
@@ -698,7 +761,6 @@
         if (m > said) { said = m; msgEl.textContent = milestones[m][1]; }
         if (Math.floor(s) > 0 && Math.floor(s) % 120 === 0) { msgEl.textContent = "Check in: how strong is it now? Move the slider."; level.classList.remove("nudge"); void level.offsetWidth; level.classList.add("nudge"); }
       }, 1000);
-      loop();
     };
     startBtn.addEventListener("click", start);
     doneBtn.addEventListener("click", () => {
@@ -710,55 +772,31 @@
       showCount();
       t0 = 0; startBtn.hidden = false; startBtn.textContent = "Ride another wave"; logBtn.hidden = true; doneBtn.hidden = true;
       stage.classList.remove("riding");
-      draw(points);
     });
 
-    // the drawing: a faint "typical wave" guide, your own wave as moving water, and you on top of it
-    const draw = (frozen) => {
-      const w = stage.clientWidth, h = stage.clientHeight, now = performance.now() / 1000;
-      sctx.clearRect(0, 0, w, h);
-      const pts = frozen || points, span = Math.max(60, ((pts.length ? pts[pts.length - 1].t : 0) + 10) * 1.25, (elapsed() + 10) * 1.25); // the chart widens as you ride, so your wave always fills it
-      const X = (t) => 24 + (t / span) * (w - 48), Y = (v) => h * 0.86 - (v / 10) * h * 0.52;
-      // the typical shape: rise, crest around ten minutes, ease by thirty
-      if (span >= 900) { // only meaningful once there's enough time on the chart to compare against
-        sctx.setLineDash([4, 6]); sctx.strokeStyle = "rgba(255,255,255,.35)"; sctx.lineWidth = 1.5;
-        sctx.beginPath();
-        for (let t = 0; t <= Math.min(span, 2400); t += 20) { const v = 8 * Math.exp(-Math.pow((t - 600) / 520, 2)) + 1; t ? sctx.lineTo(X(t), Y(v)) : sctx.moveTo(X(t), Y(v)); }
-        sctx.stroke(); sctx.setLineDash([]);
-      }
-      if (!pts.length) return;
-      // your wave: points joined smoothly, extended to "now" while riding
-      const path = pts.map((p) => [X(p.t), Y(p.v)]);
-      if (!frozen && t0) path.push([X(elapsed()), Y(pts[pts.length - 1].v)]);
-      const shimmer = isCalm() ? 0 : 1;
-      const surface = (x, y) => y + Math.sin(x / 22 + now * 2.2) * 2.5 * shimmer + Math.sin(x / 9 - now * 3.1) * 1.2 * shimmer;
-      sctx.beginPath(); sctx.moveTo(path[0][0], h);
-      const samples = [];
-      for (let i = 0; i < path.length - 1; i++) {
-        const [x0, y0] = path[i], [x1, y1] = path[i + 1];
-        for (let x = x0; x <= x1; x += 3) { const k = (x - x0) / Math.max(1, x1 - x0), e = k * k * (3 - 2 * k); samples.push([x, surface(x, y0 + (y1 - y0) * e)]); }
-      }
-      if (path.length === 1) samples.push([path[0][0], path[0][1]], [path[0][0] + 1, path[0][1]]);
-      samples.forEach(([x, y]) => sctx.lineTo(x, y));
-      const endX = samples[samples.length - 1][0];
-      sctx.lineTo(endX, h); sctx.closePath();
-      const g = sctx.createLinearGradient(0, h * 0.3, 0, h);
-      g.addColorStop(0, "rgba(140, 220, 235, .55)"); g.addColorStop(1, "rgba(10, 60, 90, .75)");
-      sctx.fillStyle = g; sctx.fill();
-      sctx.beginPath(); samples.forEach(([x, y], i) => (i ? sctx.lineTo(x, y) : sctx.moveTo(x, y)));
-      sctx.strokeStyle = "rgba(255,255,255,.9)"; sctx.lineWidth = 2.5; sctx.stroke(); // the foam line
-      const [sx, sy] = samples[samples.length - 1];
-      const glow = sctx.createRadialGradient(sx, sy - 6, 0, sx, sy - 6, 22);
-      glow.addColorStop(0, "rgba(255,255,255,1)"); glow.addColorStop(1, "rgba(255,255,255,0)");
-      sctx.fillStyle = glow; sctx.beginPath(); sctx.arc(sx, sy - 6, 22, 0, Math.PI * 2); sctx.fill();
+    // the sea: real footage that goes from a calm paddle to breaking waves as the urge rises, and settles again as it falls
+    const vids = [...stage.querySelectorAll("video.sea")];
+    const ease = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    const setSea = () => {
+      const v = Number(level.value) / 10;
+      const op = [1, ease(0.25, 0.55, v), ease(0.65, 0.9, v)];
+      const warm = [0, 0.15, 0.5]; // start fetching the rougher sea a little before it's needed
+      vids.forEach((vid, i) => {
+        vid.style.opacity = op[i];
+        if (visible && v >= warm[i] && !vid.getAttribute("src")) vid.src = vid.dataset.src;
+        const hidden = op[i] === 0 || (i < 2 && op[2] === 1) || (i === 0 && op[1] === 1);
+        if (visible && !isCalm() && !hidden && vid.getAttribute("src")) vid.play().catch(() => {});
+        else if (hidden || !visible || isCalm()) vid.pause();
+      });
+      S.ocean.set(v);
     };
-    const loop = () => {
-      cancelAnimationFrame(raf);
-      const frame = () => { draw(); if (t0 && visible && !document.hidden) raf = requestAnimationFrame(frame); };
-      raf = requestAnimationFrame(frame);
-    };
-    new IntersectionObserver(([en]) => { visible = en.isIntersecting; if (visible) { size(); t0 ? loop() : draw(points.length ? points : null); } }).observe(stage);
-    window.addEventListener("resize", () => { size(); draw(points.length && !t0 ? points : null); });
+    level.addEventListener("input", setSea);
+    new IntersectionObserver(([en]) => {
+      visible = en.isIntersecting;
+      setSea();
+      if (visible) S.ocean.start(); else S.ocean.stop();
+    }, { rootMargin: "200px 0px" }).observe(stage);
+    document.getElementById("calmBtn").addEventListener("click", () => setTimeout(setSea));
     return { start: () => { if (!t0) start(); } };
   })();
 
@@ -769,6 +807,7 @@
       { title: "Call or text someone", img: pic("1758876201450-cf77ab8b95bc"), text: "You don't have to explain everything. \"Can you talk for a bit?\" is enough — or just talk about anything else.", actions: [{ label: "Write a message", href: "sms:?&body=" + encodeURIComponent("Hey, can you talk for a bit? I'm having a hard moment.") }] },
       { title: "Talk it through", img: pic("1488509082528-cefbba5ad692"), text: "Use the gentle check-in below. If you'd like an AI companion, Wysa is an anonymous, evidence-based option — it's no substitute for people or for crisis care.", actions: [{ label: "Start the check-in", go: "companion" }, { label: "Wysa ↗", href: "https://www.wysa.com/", ext: true }] },
       { title: "Dance it out", img: "https://i.ytimg.com/vi/gkstiMe2Ybs/hqdefault.jpg", text: "Put on a Just Dance video and copy the dancers. Silly, sweaty and impossible to do while thinking about food.", actions: [{ label: "Watch on YouTube ↗", href: "https://www.youtube.com/watch?v=gkstiMe2Ybs", ext: true }, { label: "More Just Dance ↗", href: "https://www.youtube.com/@justdancegame", ext: true }] },
+      { title: "Make a Pinterest board", img: pic("1763307411452-43cfd9f516ce"), text: "Collect things that make you feel calm, hopeful or excited — places you'd love to visit, colours, art, room ideas, future plans. Keep it free of bodies and diet content.", actions: [{ label: "Open Pinterest ↗", href: "https://www.pinterest.com/", ext: true }, { label: "How to make a board ↗", href: "https://help.pinterest.com/en/article/create-a-board", ext: true }] },
       { title: "Make something", img: pic("1593037515490-c4d56a9ff5ff"), text: "Draw, paint, colour, knit, play an instrument. Busy hands quiet a busy mind — it doesn't have to be good.", actions: [] },
       { title: "Step outside", img: pic("1758438919146-f3f59a6d2544"), text: "Walk around the block. Name five colours you can see. Fresh air and a change of scene can break the loop.", actions: [] },
       { title: "Turn the music up", img: pic("1625786682948-2168238883d2"), text: "One song you love, start to finish, eyes closed. Sing along if you can — it's hard to hold your breath and sing.", actions: [] },
@@ -803,8 +842,30 @@
     const logEl = document.getElementById("compLog");
     const repliesEl = document.getElementById("compReplies");
     const tree = {
-      start: { say: "Hi. I'm a small script, not a person — but I'm here, and I'm not going anywhere. How are you feeling right now?",
-        options: [["Anxious or restless", "anxious"], ["Having an urge", "urge"], ["Sad or lonely", "sad"], ["Numb or empty", "numb"], ["I just need a distraction", "distract"]] },
+      start: { say: "Hi. I'm a small script, not a person — but I'm here, and I'm not going anywhere. How are you feeling right now? Hard feelings and good ones are both welcome.",
+        options: [["Anxious or restless", "anxious"], ["Having an urge", "urge"], ["Sad or lonely", "sad"], ["Numb or empty", "numb"], ["Angry or frustrated", "angry"], ["Overwhelmed", "overwhelmed"],
+          ["Guilty after eating", "guilt"], ["Bored", "bored"], ["Tired", "tired"], ["I just need a distraction", "distract"],
+          ["Calm", "calm"], ["Hopeful", "hopeful"], ["Proud of myself", "proud"], ["Happy", "happy"], ["Grateful", "grateful"]] },
+      angry: { say: "Anger makes sense — it often shows up when something matters or something isn't fair. It's allowed. Let's give it somewhere safe to go.",
+        options: [["Snap some chalk", "#asmr"], ["Pop bubbles hard", "#play"], ["Dance it out", "dance"], ["Something else", "start"]] },
+      overwhelmed: { say: "When everything is too much, the next step only needs to be tiny. Just this breath. Then the next one.",
+        options: [["Breathe with the sunrise", "#breathe"], ["5-4-3-2-1 on the water", "#pond"], ["Talk to a real person", "#help"]] },
+      guilt: { say: "That guilt is the eating disorder talking, not the truth. Eating is not something you have to earn or make up for. Your body needed that, and it's already saying thank you.",
+        options: [["Show me what my food gave me", "#nourish"], ["Ride out an urge to compensate", "@surf"], ["Something else", "start"]] },
+      bored: { say: "Boredom can make urges louder. Let's give your hands and mind something more interesting.",
+        options: [["Play the lantern game", "#play"], ["Try the ASMR toys", "#asmr"], ["See all the ideas", "#ideas"]] },
+      tired: { say: "Tired is a real need, not a failure. Rest is allowed — and a warm drink and something to eat can be part of rest too.",
+        options: [["A slow breathing break", "#breathe"], ["Gentle sounds", "#asmr"], ["Something else", "start"]] },
+      calm: { say: "I'm really glad you've found some calm. Let's notice it, so you can find your way back here later.",
+        options: [["Leave a note for the morning", "#notes"], ["Breathe and stay here a while", "#breathe"], ["Start over", "start"]] },
+      hopeful: { say: "Hope is such a brave thing to feel. Hold onto it — write it down so a harder day can borrow it.",
+        options: [["Write it on a note", "#notes"], ["Make a Pinterest board of it", "pinterest"], ["Start over", "start"]] },
+      proud: { say: "You should be! Whatever you did, it counts — big steps and tiny ones. I'm proud of you too.",
+        options: [["Leave a note for future me", "#notes"], ["Celebrate with a dance", "dance"], ["Start over", "start"]] },
+      happy: { say: "That makes me happy too. Let yourself enjoy it — you deserve good moments, fully.",
+        options: [["Play something fun", "#play"], ["Turn on calm music", "music"], ["Save it in a note", "#notes"]] },
+      grateful: { say: "Gratitude is lovely to sit with. What, or who, are you grateful for? Writing it down makes it stay a little longer.",
+        options: [["Write it on a note", "#notes"], ["Message someone to say thanks", "sms-thanks"], ["Start over", "start"]] },
       anxious: { say: "That restless feeling is so hard to sit in. Let's give your body somewhere to put it.",
         options: [["Breathe with the sunrise", "#breathe"], ["Pop some bubbles", "#play"], ["Something else", "start"]] },
       urge: { say: "Thank you for noticing it instead of just acting on it. That takes real strength. Want to ride it out together?",
@@ -841,8 +902,11 @@
       if (tree[to]) return say(to);
       say("after");
       setTimeout(() => {
-        const target = { "#ideas": "ideas", "#help": "help", "#breathe": "breathe", "#play": "play", "#pond": "pond", "@surf": "surf" }[to];
+        const target = { "#ideas": "ideas", "#help": "help", "#breathe": "breathe", "#play": "play", "#pond": "pond", "@surf": "surf", "#asmr": "asmr", "#notes": "notes", "#nourish": "nourish" }[to];
         if (to === "sms") location.href = "sms:?&body=" + encodeURIComponent("Hey, can you talk for a bit? I'm having a hard moment.");
+        else if (to === "sms-thanks") location.href = "sms:?&body=" + encodeURIComponent("Hey, I was just thinking about you. Thank you for being in my life.");
+        else if (to === "pinterest") window.open("https://www.pinterest.com/", "_blank", "noopener");
+        else if (to === "music") { S.setMusic(true); }
         else if (to === "dance") window.open("https://www.youtube.com/watch?v=gkstiMe2Ybs", "_blank", "noopener");
         else if (target) {
           const el = document.getElementById(target);
@@ -865,12 +929,19 @@
     const timeEl = document.getElementById("lgTime");
     const startEl = document.getElementById("lgStart");
     const ROUND = 180;
-    let lanterns = [], sparks = [], score = 0, t0 = 0, last = 0, playing = false, nextSpawn = 0, visible = false;
+    let lanterns = [], sparks = [], score = 0, t0 = 0, last = 0, playing = false, nextSpawn = 0, visible = false, speed = 1;
+    // speed modes: gentle for a slow mind, up to fast for people used to games
+    const pickSpeed = (e) => {
+      const b = e.target.closest("[data-speed]"); if (!b) return;
+      speed = Number(b.dataset.speed);
+      b.parentElement.querySelectorAll("[data-speed]").forEach((x) => x.setAttribute("aria-checked", String(x === b)));
+    };
+    startEl.addEventListener("click", pickSpeed);
     const size = () => { const d = Math.min(2, devicePixelRatio || 1); cv.width = box.clientWidth * d; cv.height = box.clientHeight * d; g.setTransform(d, 0, 0, d, 0, 0); };
     const W = () => box.clientWidth, H = () => box.clientHeight;
     const spawn = (k) => {
       const s = 26 + Math.random() * 18;
-      lanterns.push({ x: s + Math.random() * (W() - s * 2), y: H() + s, s, vy: (46 + Math.random() * 34) * (1 + k * 1.4), sway: Math.random() * 6, lit: 0 });
+      lanterns.push({ x: s + Math.random() * (W() - s * 2), y: H() + s, s, vy: (46 + Math.random() * 34) * (1 + k * 1.4) * speed, sway: Math.random() * 6, lit: 0 });
     };
     const drawLantern = (l, t) => {
       const x = l.x + Math.sin(t * 1.3 + l.sway) * 8, y = l.y, s = l.s;
@@ -898,7 +969,7 @@
       const t = (now - t0) / 1000, dt = Math.min(0.05, (now - last) / 1000); last = now;
       const left = Math.max(0, ROUND - t), k = t / ROUND;
       timeEl.textContent = `${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, "0")}`;
-      if (t >= nextSpawn) { spawn(k); nextSpawn = t + Math.max(0.35, 1.4 - k * 1.1) * (0.6 + Math.random() * 0.8); }
+      if (t >= nextSpawn) { spawn(k); nextSpawn = t + (Math.max(0.35, 1.4 - k * 1.1) * (0.6 + Math.random() * 0.8)) / Math.sqrt(speed); }
       g.clearRect(0, 0, W(), H());
       lanterns.forEach((l) => {
         l.y -= l.vy * dt * (l.lit ? 2.4 : 1);
@@ -916,8 +987,9 @@
     const resume = () => { if (playing && pausedAt) { const gap = performance.now() - pausedAt; t0 += gap; last = performance.now(); pausedAt = 0; requestAnimationFrame(frame); } };
     const finish = () => {
       playing = false;
+      const speeds = document.getElementById("lgSpeeds").outerHTML;
       startEl.innerHTML = `<h3>You freed ${score} lantern${score === 1 ? "" : "s"}</h3><p>Three minutes, done. How's the urge now — a little quieter?</p>
-        <div class="lg-again"><button class="btn btn-solid" id="lgPlay">Play again</button><button class="btn btn-line" type="button" data-go="surf">Ride the wave</button></div>`;
+        ${speeds}<div class="lg-again"><button class="btn btn-solid" id="lgPlay">Play again</button><button class="btn btn-line" type="button" data-go="surf">Ride the wave</button></div>`;
       startEl.hidden = false;
       document.getElementById("lgPlay").addEventListener("click", play);
     };
@@ -933,7 +1005,7 @@
       for (const l of lanterns) {
         const x = l.x + Math.sin(t * 1.3 + l.sway) * 8;
         if (!l.lit && Math.hypot(px - x, py - l.y) < l.s * 0.9) {
-          l.lit = 1; l.fade = 0; score++;
+          l.lit = 1; l.fade = 0; score++; S.chime();
           scoreEl.textContent = `${score} lantern${score === 1 ? "" : "s"} freed`;
           for (let i = 0; i < 14; i++) sparks.push({ x, y: l.y, vx: (Math.random() - .5) * 140, vy: (Math.random() - .8) * 120, life: .8 + Math.random() * .5 });
           break;
@@ -949,14 +1021,152 @@
     };
     grid.addEventListener("pointerdown", (e) => {
       const b = e.target.closest(".bubble");
-      if (b && !b.classList.contains("popped")) { b.classList.add("popped"); b.setAttribute("aria-pressed", "true"); }
+      if (b && !b.classList.contains("popped")) { b.classList.add("popped"); b.setAttribute("aria-pressed", "true"); S.pop(); }
     });
     grid.addEventListener("keydown", (e) => {
       const b = e.target.closest(".bubble");
-      if (b && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); b.classList.add("popped"); }
+      if (b && (e.key === "Enter" || e.key === " ") && !b.classList.contains("popped")) { e.preventDefault(); b.classList.add("popped"); S.pop(); }
     });
     document.getElementById("bubbleReset").addEventListener("click", fill);
     fill();
+  })();
+
+  /* ---------- sounds that soothe: small ASMR toys to tap, snap and listen to ---------- */
+  (() => {
+    const box = document.getElementById("toys");
+    const notes = [392, 440, 523.25, 587.33, 659.25];
+    const drops = Array.from({ length: 40 }, () => `<i style="--x:${(Math.random() * 100).toFixed(1)}%;--d:${(0.5 + Math.random() * 0.6).toFixed(2)}s;--o:${(Math.random() * 1.5).toFixed(2)}s"></i>`).join("");
+    const toys = [
+      ["chalk", "Snap the chalk", "Tap to break it. A new stick rolls in.", '<div class="chalk"><i class="half l"></i><i class="half r"></i></div>'],
+      ["sand", "Slice the sand", "Tap or swipe to cut a slice of kinetic sand.", '<div class="sand"><div class="sand-block"></div></div>'],
+      ["paper", "Scrunch the paper", "Press and drag to crumple it. Let go to smooth it out.", '<div class="paper"><div class="sheet"></div></div>'],
+      ["wood", "Tap the wood", "Five warm wooden notes. Any order sounds kind.",
+        '<div class="keys">' + notes.map((f, i) => `<button type="button" class="key" data-f="${f}" style="--i:${i}" aria-label="Wooden note ${i + 1}"></button>`).join("") + "</div>"],
+      ["bowl", "Ring the bowl", "One tap. Listen until the sound is completely gone.", '<div class="bowl-wrap"><div class="bowl"></div></div>'],
+      ["ice", "Clink the ice", "Tap the glass and listen to the ice settle.", '<div class="glass"><i></i><i></i><i></i></div>'],
+      ["rain", "Rain on the window", "Tap to start or stop the rain.", `<div class="window">${drops}</div>`],
+    ];
+    box.innerHTML = toys.map(([k, title, hint, art]) => `<article class="toy toy-${k} reveal" data-toy="${k}">
+        <div class="toy-stage"${k === "wood" ? "" : ' role="button" tabindex="0"'} aria-label="${esc(title)}">${art}</div>
+        <h3>${esc(title)}</h3><p>${esc(hint)}</p></article>`).join("");
+    const card = (k) => box.querySelector(`[data-toy="${k}"] .toy-stage`);
+    const press = (el, fn) => {
+      el.addEventListener("click", fn);
+      el.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fn(e); } });
+    };
+    const crumbs = (host, n, colour) => {
+      for (let i = 0; i < n; i++) {
+        const c = document.createElement("span");
+        c.className = "crumb";
+        c.style.cssText = `--dx:${((Math.random() - 0.5) * 120).toFixed(0)}px;--dy:${(20 + Math.random() * 70).toFixed(0)}px;--s:${(2 + Math.random() * 4).toFixed(1)}px;background:${colour}`;
+        host.appendChild(c);
+        setTimeout(() => c.remove(), 1200);
+      }
+    };
+
+    // chalk
+    const chalkColours = ["#f7f3ea", "#ffd1dc", "#cde8ff", "#d7f5d0", "#fff1b8", "#e5d4ff"];
+    let ci = 0, snapping = false;
+    const chalkStage = card("chalk"), chalk = chalkStage.querySelector(".chalk");
+    chalk.style.setProperty("--c", chalkColours[0]);
+    press(chalkStage, () => {
+      if (snapping) return;
+      snapping = true; S.chalk();
+      chalk.classList.add("snapped");
+      crumbs(chalkStage, 16, chalkColours[ci]);
+      setTimeout(() => {
+        ci = (ci + 1) % chalkColours.length;
+        chalk.classList.remove("snapped"); chalk.classList.add("fresh");
+        chalk.style.setProperty("--c", chalkColours[ci]);
+        setTimeout(() => { chalk.classList.remove("fresh"); snapping = false; }, 500);
+      }, 1300);
+    });
+
+    // kinetic sand: each cut slices a little off the block, and the slice slumps over
+    const sandStage = card("sand"), sandBox = sandStage.querySelector(".sand"), block = sandStage.querySelector(".sand-block");
+    const sandColours = ["#f2b8c6", "#b9d8f2", "#c8e6b8", "#f5d49a", "#d6c3f0"];
+    let left = 10, si = 0, lastCut = 0;
+    block.style.setProperty("--c", sandColours[0]);
+    const cut = () => {
+      const now = performance.now();
+      if (now - lastCut < 180 || left <= 0) return;
+      lastCut = now;
+      S.sand();
+      left--;
+      const slice = document.createElement("span");
+      slice.className = "slice"; slice.style.setProperty("--c", sandColours[si]); slice.style.left = `${10 + left * 8}%`;
+      sandBox.appendChild(slice);
+      setTimeout(() => slice.remove(), 1300);
+      block.style.width = `${left * 8}%`;
+      if (left <= 0) setTimeout(() => { si = (si + 1) % sandColours.length; block.style.setProperty("--c", sandColours[si]); left = 10; block.style.width = "80%"; }, 800);
+    };
+    press(sandStage, cut);
+    sandStage.addEventListener("pointermove", (e) => { if (e.buttons) cut(); });
+
+    // paper
+    const paperStage = card("paper"), sheet = paperStage.querySelector(".sheet");
+    let scrunch = 0, holding = false, px = 0, py = 0, unfold;
+    const shape = () => {
+      const j = () => (Math.random() * scrunch * 18).toFixed(1);
+      sheet.style.clipPath = `polygon(${j()}% ${j()}%, 50% ${j()}%, ${100 - j()}% ${j()}%, ${100 - j()}% 50%, ${100 - j()}% ${100 - j()}%, 50% ${100 - j()}%, ${j()}% ${100 - j()}%, ${j()}% 50%)`;
+      sheet.style.transform = `scale(${(1 - scrunch * 0.45).toFixed(3)}) rotate(${((Math.random() - 0.5) * scrunch * 30).toFixed(1)}deg)`;
+      sheet.style.setProperty("--crease", scrunch.toFixed(2));
+    };
+    const release = () => {
+      holding = false;
+      clearInterval(unfold);
+      unfold = setInterval(() => { scrunch = Math.max(0, scrunch - 0.1); shape(); if (Math.random() < 0.5) S.paper(0.25); if (!scrunch) clearInterval(unfold); }, 140);
+    };
+    paperStage.addEventListener("pointerdown", (e) => {
+      holding = true; px = e.clientX; py = e.clientY; clearInterval(unfold);
+      paperStage.setPointerCapture(e.pointerId);
+      scrunch = Math.min(1, scrunch + 0.1); shape(); S.paper(0.7);
+    });
+    paperStage.addEventListener("pointermove", (e) => {
+      if (!holding || Math.hypot(e.clientX - px, e.clientY - py) < 14) return;
+      px = e.clientX; py = e.clientY;
+      scrunch = Math.min(1, scrunch + 0.06); shape(); S.paper(0.5 + scrunch * 0.6);
+    });
+    paperStage.addEventListener("pointerup", () => holding && release());
+    paperStage.addEventListener("pointercancel", () => holding && release());
+    paperStage.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault(); scrunch = Math.min(1, scrunch + 0.3); shape(); S.paper(1);
+      clearTimeout(paperStage._k); paperStage._k = setTimeout(release, 600);
+    });
+
+    // wooden keys
+    card("wood").addEventListener("click", (e) => {
+      const k = e.target.closest(".key"); if (!k) return;
+      S.wood(Number(k.dataset.f));
+      k.classList.remove("hit"); void k.offsetWidth; k.classList.add("hit");
+    });
+
+    // singing bowl
+    const bowlStage = card("bowl"), bowlWrap = bowlStage.querySelector(".bowl-wrap");
+    press(bowlStage, () => {
+      S.bowl();
+      for (let i = 0; i < 3; i++) {
+        const r = document.createElement("span"); r.className = "hum"; r.style.animationDelay = `${i * 0.9}s`;
+        bowlWrap.appendChild(r);
+        setTimeout(() => r.remove(), 5000 + i * 900);
+      }
+    });
+
+    // ice
+    const iceStage = card("ice");
+    press(iceStage, () => {
+      S.clink(); setTimeout(() => S.clink(), 90 + Math.random() * 120);
+      iceStage.classList.remove("clinked"); void iceStage.offsetWidth; iceStage.classList.add("clinked");
+    });
+
+    // rain: stops on its own when you scroll away
+    const rainStage = card("rain");
+    let raining = false;
+    const setRain = (on) => { raining = on; rainStage.classList.toggle("raining", on); rainStage.setAttribute("aria-pressed", String(on)); if (on) S.rain.start(); else S.rain.stop(); };
+    rainStage.setAttribute("aria-pressed", "false");
+    press(rainStage, () => setRain(!raining));
+    new IntersectionObserver(([en]) => { if (!en.isIntersecting && raining) setRain(false); }).observe(rainStage);
   })();
 
   /* ---------- resources: community, bookshelf, podcasts, research ---------- */
@@ -1040,31 +1250,43 @@
   window.addEventListener("resize", syncPill);
   document.fonts && document.fonts.ready.then(syncPill);
 
-  /* ---------- notes pinned to the board ---------- */
+  /* ---------- notes for the morning: colourful, movable, removable ---------- */
   const board = document.getElementById("board");
-  const seed = [
-    "You made it through every hard day so far.",
-    "Rest is productive.",
-    "Food is fuel, comfort and connection.",
-    "Progress, not perfection.",
-    "Future me is proud of me.",
-  ];
-  let saved = [];
-  try { saved = JSON.parse(localStorage.getItem("bloom-notes") || "[]"); } catch (e) { saved = []; }
-  const persist = () => { try { localStorage.setItem("bloom-notes", JSON.stringify(saved)); } catch (e) {} };
+  const colours = [["butter", "#fff3b0", "Yellow"], ["blush", "#ffd3dd", "Pink"], ["mint", "#cdf0dc", "Green"], ["sky", "#cfe6ff", "Blue"], ["lilac", "#e4d7ff", "Lilac"], ["peach", "#ffdcc2", "Peach"]];
+  const colourOf = (c) => (colours.find(([k]) => k === c) || colours[0])[1];
   const rand = (a, b) => a + Math.random() * (b - a);
-  const place = (text, x, y, record) => {
+  let notes = null;
+  try { notes = JSON.parse(localStorage.getItem("bloom-notes-v2")); } catch (e) {}
+  if (!Array.isArray(notes)) {
+    const seed = [
+      "You made it through every hard day so far.",
+      "Rest is productive.",
+      "Food is fuel, comfort and connection.",
+      "Progress, not perfection.",
+      "Future me is proud of me.",
+    ];
+    const cols = board.clientWidth < 600 ? 2 : 3, rows = Math.ceil(seed.length / cols);
+    notes = seed.map((text, i) => ({ text, c: colours[i % colours.length][0], r: rand(-3, 3), x: 3 + (i % cols) * (96 / cols) + rand(0, 4), y: 5 + Math.floor(i / cols) * (90 / rows) + rand(0, 6) }));
+    // keep any notes written before notes had colours
+    try { JSON.parse(localStorage.getItem("bloom-notes") || "[]").forEach((o) => notes.push({ text: o.text, c: "butter", r: rand(-3, 3), x: o.x, y: o.y })); } catch (e) {}
+  }
+  const persist = () => { try { localStorage.setItem("bloom-notes-v2", JSON.stringify(notes)); } catch (e) {} };
+  const place = (rec) => {
     const n = document.createElement("div");
-    n.className = "note"; n.textContent = text;
-    n.style.setProperty("--r", `${rand(-3, 3).toFixed(1)}deg`);
+    n.className = "note";
+    n.style.setProperty("--r", `${(rec.r || 0).toFixed(1)}deg`);
+    n.style.setProperty("--note", colourOf(rec.c));
+    n.innerHTML = '<span class="note-text"></span><button class="note-x" type="button" aria-label="Remove this note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg></button>';
+    n.querySelector(".note-text").textContent = rec.text;
     board.appendChild(n);
     const maxX = Math.max(0, (1 - n.offsetWidth / board.clientWidth) * 100);
     const maxY = Math.max(0, (1 - n.offsetHeight / board.clientHeight) * 100);
-    n.style.left = `${Math.min(x, maxX)}%`; n.style.top = `${Math.min(y, maxY)}%`;
+    n.style.left = `${Math.min(rec.x, maxX)}%`; n.style.top = `${Math.min(rec.y, maxY)}%`;
     let sx, sy, ox, oy, dragging = false;
     n.addEventListener("pointerdown", (e) => {
-      if (dragging) return;
+      if (dragging || e.target.closest(".note-x")) return;
       dragging = true; n.setPointerCapture(e.pointerId); n.classList.add("dragging");
+      board.appendChild(n); // the note you pick up comes to the front
       sx = e.clientX; sy = e.clientY; ox = n.offsetLeft; oy = n.offsetTop;
     });
     n.addEventListener("pointermove", (e) => {
@@ -1077,22 +1299,36 @@
     const end = () => {
       if (!dragging) return;
       dragging = false; n.classList.remove("dragging");
-      if (record) { record.x = parseFloat(n.style.left); record.y = parseFloat(n.style.top); persist(); }
+      rec.x = parseFloat(n.style.left); rec.y = parseFloat(n.style.top); persist();
     };
     n.addEventListener("pointerup", end);
     n.addEventListener("pointercancel", end);
+    n.querySelector(".note-x").addEventListener("click", () => {
+      notes = notes.filter((x) => x !== rec); persist();
+      S.paper(0.6);
+      n.classList.add("gone");
+      setTimeout(() => n.remove(), 300);
+    });
   };
-  const cols = board.clientWidth < 600 ? 2 : 3;
-  const rows = Math.ceil(seed.length / cols);
-  seed.forEach((t, i) => place(t, 3 + (i % cols) * (96 / cols) + rand(0, 4), 5 + Math.floor(i / cols) * (90 / rows) + rand(0, 6)));
-  saved.forEach((r) => place(r.text, r.x, r.y, r));
+  notes.forEach(place);
+
+  // pick a colour for the next note
+  const swatches = document.getElementById("noteColours");
+  let chosen = colours[1][0];
+  swatches.innerHTML = colours.map(([k, hex, label]) =>
+    `<button type="button" role="radio" class="swatch-btn" data-c="${k}" style="--note:${hex}" aria-label="${label}" aria-checked="${k === chosen}"></button>`).join("");
+  swatches.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-c]"); if (!b) return;
+    chosen = b.dataset.c;
+    swatches.querySelectorAll("[data-c]").forEach((x) => x.setAttribute("aria-checked", String(x === b)));
+  });
   document.getElementById("noteForm").addEventListener("submit", (e) => {
     e.preventDefault();
     const input = document.getElementById("noteInput");
     const t = input.value.trim();
     if (!t) return;
-    const r = { text: t, x: rand(5, 60), y: rand(10, 65) };
-    saved.push(r); persist(); place(r.text, r.x, r.y, r);
+    const rec = { text: t, c: chosen, r: rand(-3, 3), x: rand(5, 60), y: rand(10, 65) };
+    notes.push(rec); persist(); place(rec); S.paper(0.4);
     input.value = "";
   });
 })();

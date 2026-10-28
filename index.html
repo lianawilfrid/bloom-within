@@ -8,9 +8,9 @@
   <link rel="preconnect" href="https://images.unsplash.com">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=7">
-  <script>document.documentElement.classList.add("js", "loading");</script>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..700&family=Figtree:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=11">
+  <script>document.documentElement.classList.add("js", "loading");try{var t=localStorage.getItem("bloom-theme");if(t)document.documentElement.dataset.theme=t;}catch(e){}</script>
 </head>
 <body>
   <!-- Loading screen: fades out once every photo is downloaded and decoded (never longer than 8s) -->
@@ -18,6 +18,7 @@
     <p class="loader-mark">Bloom Within</p>
     <div class="loader-track"><i id="loaderBar"></i></div>
     <p class="loader-text" id="loaderText">Waiting for the sky…</p>
+    <p class="loader-note">Support and information, not medical advice.</p>
     <button class="loader-skip" id="loaderSkip" hidden>Skip — show me the page</button>
   </div>
 
@@ -45,6 +46,7 @@
         <li><a href="#breathe">Breathe</a></li>
         <li><a href="#surf">Urges</a></li>
         <li><a href="#distract">Distract</a></li>
+        <li><a href="#asmr">Soothe</a></li>
         <li><a href="#know">Understand</a></li>
         <li><a href="#nourish">Nourish</a></li>
         <li><a href="#help">Get help</a></li>
@@ -52,7 +54,23 @@
         <li><a href="#support">Support</a></li>
       </ul>
     </nav>
-    <button class="pill" id="calmBtn" aria-pressed="false">Calm mode</button>
+    <div class="bar-tools">
+      <button class="pill tool" id="themeBtn" type="button"><i class="swatch" aria-hidden="true"></i><span class="tool-label">Dark</span></button>
+      <div class="sound">
+        <button class="pill tool" id="soundBtn" type="button" aria-expanded="false" aria-controls="soundPanel">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path class="spk" d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/><path class="cross" d="M16 9l6 6M22 9l-6 6"/></svg><span class="tool-label">Sound</span>
+        </button>
+        <div class="sound-panel" id="soundPanel" hidden>
+          <p class="sp-title">Sound</p>
+          <label class="switch"><input type="checkbox" id="sfxToggle"><span>Sound effects</span><i aria-hidden="true"></i></label>
+          <label class="switch"><input type="checkbox" id="musicToggle"><span>Calm music</span><i aria-hidden="true"></i></label>
+          <label class="vol"><span>Volume</span><input type="range" id="volume" min="0" max="100" value="70"></label>
+          <button class="btn btn-line sp-off" id="muteAll" type="button">Turn all sound off</button>
+          <p class="sp-hint">Headphones make the ocean and ASMR sounds feel closer.</p>
+        </div>
+      </div>
+      <button class="pill" id="calmBtn" aria-pressed="false">Calm mode</button>
+    </div>
   </header>
 
   <main id="top">
@@ -73,25 +91,43 @@
 
       <div class="hero-shot" id="heroShot" aria-hidden="true"><img data-photo="1770669252538-234aa444da99" alt=""></div>
       <div class="hero-copy" id="heroCopy">
+        <p class="hero-note">This site offers support and information — <em>not</em> medical advice. If you're unwell or in danger, please contact a doctor or emergency services.</p>
         <h1>You are not alone.</h1>
-        <p>Eating disorders are serious, treatable illnesses — not choices, not vanity, not your fault. However dark it feels right now, morning comes.</p>
-        <div class="hero-actions">
-          <a href="#help" class="btn btn-solid">Find help now</a>
-          <a href="#breathe" class="btn btn-line">Breathe with me first</a>
-        </div>
-        <p class="scroll-cue" aria-hidden="true">Scroll slowly</p>
+        <p class="hero-sub">Eating disorders are serious, treatable illnesses — <em>not</em> choices, not vanity, not your fault. However dark it feels right now, <em>morning comes.</em></p>
+        <nav class="hero-paths" aria-label="Choose how you'd like help">
+          <a href="#help" class="path path-fast">
+            <span class="path-tag">Fast help</span>
+            <strong>Find help now</strong>
+            <span class="path-sub"><span aria-hidden="true">←</span> Helplines, straight away</span>
+          </a>
+          <a href="#breathe" class="path path-slow">
+            <span class="path-tag">Slow help</span>
+            <strong>Take it slowly</strong>
+            <span class="path-sub">Scroll to breathe and settle <span class="scroll-mouse" aria-hidden="true"><i></i></span></span>
+          </a>
+        </nav>
       </div>
     </section>
 
     <section id="breathe" class="chapter">
       <div class="chapter-head reveal">
         <h2>Breathe with the sunrise</h2>
-        <p>In for four as the light grows. Hold for four. Out for six as it softens. Repeat as long as you need.</p>
+        <p>In for four as the light grows. Hold for four. Out for six as it softens. <em>Follow the light</em> — it shows you when.</p>
       </div>
       <div class="sunrise reveal">
-        <button class="sun-window" id="sunWindow" aria-label="Start or stop the breathing exercise">
-          <img data-photo="1577337473192-fec17938c468" data-w="900" alt="">
-        </button>
+        <div class="breath" id="breath">
+          <svg class="breath-ring" viewBox="0 0 120 120" aria-hidden="true"><circle class="ring-track" cx="60" cy="60" r="57"/><circle class="ring-fill" id="ringFill" cx="60" cy="60" r="57" pathLength="100"/></svg>
+          <div class="motes" id="motes" aria-hidden="true"></div>
+          <button class="sun-window" id="sunWindow" aria-label="Start or stop the breathing exercise">
+            <img data-photo="1577337473192-fec17938c468" data-w="900" alt="">
+          </button>
+        </div>
+        <div class="breath-guide" id="breathGuide" aria-hidden="true">
+          <span class="phase" data-p="0"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="5"/><path d="M20 2v10m-3.5-3.5L20 12l3.5-3.5M20 38V28m-3.5 3.5L20 28l3.5 3.5M2 20h10m-3.5-3.5L12 20l-3.5 3.5M38 20H28m3.5-3.5L28 20l3.5 3.5"/></svg></span>
+          <span class="phase" data-p="1"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="14"/><path d="M16 14v12M24 14v12"/></svg></span>
+          <span class="phase" data-p="2"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="5"/><path d="M20 12V2m-3.5 3.5L20 2l3.5 3.5M20 28v10m-3.5-3.5L20 38l3.5-3.5M12 20H2m3.5-3.5L2 20l3.5 3.5M28 20h10m-3.5-3.5L38 20l-3.5 3.5"/></svg></span>
+        </div>
+        <div class="breath-count" id="breathCount" aria-hidden="true"></div>
         <p class="sun-cue" id="sunCue" aria-live="polite">Tap the sunrise to begin</p>
       </div>
 
@@ -117,11 +153,12 @@
     <section id="surf" class="chapter surf">
       <div class="chapter-head reveal">
         <h2>Ride the wave</h2>
-        <p>An urge to binge, restrict or purge can feel like it will last forever. It won't. Urges rise, peak and fall like waves — most pass within about 20 to 30 minutes if you don't act on them. You don't have to fight the wave. Just stay on the board.</p>
+        <p>An urge to binge, restrict or purge can feel like it will last <em>forever</em>. It won't. Urges rise, peak and fall like waves — most pass within about 20 to 30 minutes if you don't act on them. You don't have to fight the wave. <em>Just stay on the board.</em></p>
       </div>
       <div class="surf-stage reveal" id="surfStage">
-        <img data-photo="1565706444617-09c267f302c6" data-w="2400" alt="">
-        <canvas id="surfCanvas" aria-hidden="true"></canvas>
+        <video class="sea" muted loop playsinline preload="none" poster="videos/sea-calm.jpg" data-src="videos/sea-calm.mp4" aria-hidden="true"></video>
+        <video class="sea" muted loop playsinline preload="none" data-src="videos/sea-swell.mp4" aria-hidden="true"></video>
+        <video class="sea" muted loop playsinline preload="none" data-src="videos/sea-break.mp4" aria-hidden="true"></video>
         <div class="surf-top">
           <p class="surf-time" id="surfTime" aria-live="off">00:00</p>
           <p class="surf-msg" id="surfMsg" aria-live="polite">When an urge comes, press start. We'll ride it together.</p>
@@ -140,16 +177,16 @@
       <ol class="surf-steps reveal">
         <li><b>Notice it.</b> Where do you feel the urge in your body — your chest, your throat, your hands?</li>
         <li><b>Breathe into that place.</b> Slow breaths, longer out than in.</li>
-        <li><b>Rate it as it changes.</b> Watch your own wave rise, crest and fall.</li>
+        <li><b>Rate it as it changes.</b> The sea follows you — as the urge falls, the waves settle back to calm water.</li>
         <li><b>Let it pass.</b> Every wave you ride makes the next one a little easier.</li>
       </ol>
-      <p class="source reveal">Urge surfing comes from mindfulness-based relapse prevention developed by Alan Marlatt. Timings vary from person to person.</p>
+      <p class="source reveal">Urge surfing comes from mindfulness-based relapse prevention developed by Alan Marlatt. Timings vary from person to person. Ocean footage from <a href="https://mixkit.co/" target="_blank" rel="noopener">Mixkit</a>.</p>
     </section>
 
     <section id="distract" class="chapter distract">
       <div class="chapter-head reveal">
         <h2>Delay, distract, reach out</h2>
-        <p>Promise yourself just ten minutes before you decide anything. Then fill those minutes with something else. Most of the time, the urge gets quieter while you're busy living.</p>
+        <p>Promise yourself <em>just ten minutes</em> before you decide anything. Then fill those minutes with something else. Most of the time, the urge gets quieter while you're <em>busy living.</em></p>
       </div>
       <div class="ideas" id="ideas"></div>
 
@@ -176,6 +213,12 @@
           <div class="lg-start" id="lgStart">
             <h3>Light the lanterns</h3>
             <p>Lanterns drift up through the dark. Tap each one to light it and send it to the stars. Three minutes. They get quicker as you go.</p>
+            <div class="speeds" role="radiogroup" aria-label="Speed" id="lgSpeeds">
+              <button type="button" role="radio" data-speed="0.6" aria-checked="false">Gentle</button>
+              <button type="button" role="radio" data-speed="1" aria-checked="true">Steady</button>
+              <button type="button" role="radio" data-speed="1.7" aria-checked="false">Quick</button>
+              <button type="button" role="radio" data-speed="2.6" aria-checked="false">Gamer</button>
+            </div>
             <button class="btn btn-solid" id="lgPlay">Play for 3 minutes</button>
           </div>
         </div>
@@ -188,24 +231,37 @@
       </div>
     </section>
 
-    <figure class="band" aria-hidden="true"><img data-photo="1531156992292-d36397ee9184" alt=""></figure>
+    <section id="asmr" class="chapter asmr">
+      <div class="chapter-head reveal">
+        <h2>Sounds that soothe</h2>
+        <p>Little things to tap, snap and listen to — for when your hands need something to do and your mind needs something <em>softer</em>. Turn sound on at the top of the page, and try headphones.</p>
+      </div>
+      <div class="toys" id="toys"></div>
+    </section>
+
+    <figure class="band"><img data-photo="1531156992292-d36397ee9184" alt=""><figcaption class="band-quote"><p>Healing isn't a straight line.<br><em>Every small step still counts.</em></p></figcaption></figure>
 
     <section id="know" class="chapter">
       <div class="chapter-head reveal">
         <h2>Eating disorders can look like anything</h2>
-        <p>They affect people of every age, gender, body size, race and background. You don't have to "look sick" to deserve help.</p>
+        <p>They affect people of <em>every</em> age, gender, body size, race and background. You don't have to "look sick" to <em>deserve help.</em></p>
       </div>
       <div class="kinds">
         <details class="kind reveal"><summary><span class="kind-name">Anorexia</span><span class="kind-plus" aria-hidden="true"></span></summary>
-          <p>Restricting food, an intense fear of weight gain, and a distorted view of one's own body — at any body size.</p></details>
+          <p>Restricting food, an intense fear of weight gain, and a distorted view of one's own body — <em>at any body size.</em></p>
+          <a class="kind-more" href="https://www.nhs.uk/mental-health/conditions/anorexia/" target="_blank" rel="noopener">Read more about anorexia on the NHS <span aria-hidden="true">↗</span></a></details>
         <details class="kind reveal"><summary><span class="kind-name">Bulimia</span><span class="kind-plus" aria-hidden="true"></span></summary>
-          <p>Cycles of eating large amounts and then trying to compensate, often hidden behind shame and secrecy.</p></details>
+          <p>Cycles of eating large amounts and then trying to compensate, often hidden behind <em>shame and secrecy.</em></p>
+          <a class="kind-more" href="https://www.nhs.uk/mental-health/conditions/bulimia/" target="_blank" rel="noopener">Read more about bulimia on the NHS <span aria-hidden="true">↗</span></a></details>
         <details class="kind reveal"><summary><span class="kind-name">Binge eating disorder</span><span class="kind-plus" aria-hidden="true"></span></summary>
-          <p>Repeated episodes of eating with a feeling of loss of control, often followed by distress. It's the most common eating disorder.</p></details>
+          <p>Repeated episodes of eating with a feeling of loss of control, often followed by distress. It's the <em>most common</em> eating disorder.</p>
+          <a class="kind-more" href="https://www.nhs.uk/mental-health/conditions/binge-eating/" target="_blank" rel="noopener">Read more about binge eating disorder on the NHS <span aria-hidden="true">↗</span></a></details>
         <details class="kind reveal"><summary><span class="kind-name">ARFID</span><span class="kind-plus" aria-hidden="true"></span></summary>
-          <p>Avoiding or restricting foods because of sensory issues, fear of choking or low interest in eating — not because of body image.</p></details>
+          <p>Avoiding or restricting foods because of sensory issues, fear of choking or low interest in eating — <em>not</em> because of body image.</p>
+          <a class="kind-more" href="https://www.beateatingdisorders.org.uk/get-information-and-support/about-eating-disorders/types/arfid/" target="_blank" rel="noopener">Read more about ARFID from Beat <span aria-hidden="true">↗</span></a></details>
         <details class="kind reveal"><summary><span class="kind-name">OSFED</span><span class="kind-plus" aria-hidden="true"></span></summary>
-          <p>Serious eating disorders that don't fit one neat category. Just as real, and just as deserving of treatment.</p></details>
+          <p>Serious eating disorders that don't fit one neat category. <em>Just as real</em>, and just as deserving of treatment.</p>
+          <a class="kind-more" href="https://www.beateatingdisorders.org.uk/get-information-and-support/about-eating-disorders/types/osfed/" target="_blank" rel="noopener">Read more about OSFED from Beat <span aria-hidden="true">↗</span></a></details>
       </div>
       <div class="signs reveal">
         <h3>Signs worth gently noticing</h3>
@@ -222,27 +278,27 @@
     <section id="roots" class="chapter roots">
       <div class="chapter-head reveal">
         <h2>Where it can come from</h2>
-        <p>There is rarely one cause. Eating disorders grow from many roots at once — and none of them are your fault.</p>
+        <p>There is rarely one cause. Eating disorders grow from many roots at once — and <em>none of them are your fault.</em></p>
       </div>
       <div class="roots-grid">
         <article class="root reveal">
           <h3>Biology</h3>
-          <p>Genes, temperament and brain chemistry all play a part. Eating disorders often run in families, the same way anxiety or depression can.</p>
+          <p>Genes, temperament and brain chemistry all play a part. Eating disorders often <em>run in families</em>, the same way anxiety or depression can.</p>
         </article>
         <article class="root reveal">
           <h3>Mind</h3>
-          <p>Anxiety, perfectionism, low self-worth and a need to feel in control often sit underneath. Food can become the place where those feelings show up.</p>
+          <p>Anxiety, perfectionism, low self-worth and a need to feel in control often sit underneath. Food can become <em>the place where those feelings show up.</em></p>
         </article>
         <article class="root reveal">
           <h3>The world around us</h3>
-          <p>Diet culture, weight stigma, bullying about bodies, and pressure in sport or dance can all add weight to what someone is already carrying.</p>
+          <p>Diet culture, weight stigma, bullying about bodies, and pressure in sport or dance can all add weight to what someone is <em>already carrying.</em></p>
         </article>
       </div>
       <div class="trauma reveal">
         <h3>Sometimes, it starts with trauma</h3>
-        <p>Many people living with an eating disorder have been through something painful — abuse, neglect, violence, bullying, grief, or living somewhere that never felt safe. Research has found that trauma and post-traumatic stress are common alongside eating disorders, especially bulimia and binge eating.</p>
-        <p>For some people, restricting, bingeing or purging becomes a way to cope: to numb, to feel in control, or to survive feelings that were too big to hold. That isn't weakness. It's a mind trying to protect you.</p>
-        <p class="trauma-kind">If this is part of your story, you are not alone, and it was not your fault. Trauma-informed therapists can help you heal both — the eating disorder and what's underneath it.</p>
+        <p>Many people living with an eating disorder have been through something painful — abuse, neglect, violence, bullying, grief, or living somewhere that never felt safe. Research has found that trauma and post-traumatic stress are <em>common</em> alongside eating disorders, especially bulimia and binge eating.</p>
+        <p>For some people, restricting, bingeing or purging becomes a way to cope: to numb, to feel in control, or to survive feelings that were too big to hold. That isn't weakness. <em>It's a mind trying to protect you.</em></p>
+        <p class="trauma-kind">If this is part of your story, <em>you are not alone</em>, and <em>it was not your fault.</em> Trauma-informed therapists can help you heal both — the eating disorder and what's underneath it.</p>
         <p class="source">Sources: <a href="https://doi.org/10.1080/10640260701454311" target="_blank" rel="noopener">Brewerton, <i>Eating Disorders</i>, 2007</a> · <a href="https://doi.org/10.1016/S0140-6736(20)30059-3" target="_blank" rel="noopener">Treasure et al., <i>The Lancet</i>, 2020</a></p>
       </div>
     </section>
@@ -253,30 +309,32 @@
         <p>Tap a myth to see the truth.</p>
       </div>
       <ol class="myths">
-        <li class="myth reveal"><button aria-expanded="false"><span class="myth-text">Eating disorders are a choice.</span></button>
-          <div class="truth-wrap"><p class="truth">They're complex illnesses shaped by biology, psychology and environment. Nobody chooses one.</p></div></li>
-        <li class="myth reveal"><button aria-expanded="false"><span class="myth-text">You can tell by looking at someone.</span></button>
-          <div class="truth-wrap"><p class="truth">Most people with eating disorders are not visibly underweight. Size tells you nothing about suffering.</p></div></li>
-        <li class="myth reveal"><button aria-expanded="false"><span class="myth-text">Only teenage girls get them.</span></button>
-          <div class="truth-wrap"><p class="truth">People of every gender, age, culture and background are affected — including men, older adults and children.</p></div></li>
-        <li class="myth reveal"><button aria-expanded="false"><span class="myth-text">It's not serious enough to need help.</span></button>
-          <div class="truth-wrap"><p class="truth">If it's affecting your life, it's serious enough. You don't need to be "sick enough" to reach out.</p></div></li>
-        <li class="myth reveal"><button aria-expanded="false"><span class="myth-text">Full recovery isn't possible.</span></button>
-          <div class="truth-wrap"><p class="truth">Many people fully recover. With support, healing is possible at any stage.</p></div></li>
-        <li class="myth reveal"><button aria-expanded="false"><span class="myth-text">It's just about food.</span></button>
-          <div class="truth-wrap"><p class="truth">Food is often where distress shows up. Underneath can be anxiety, control, trauma, grief or identity.</p></div></li>
+        <li class="myth reveal"><button aria-expanded="false"><span class="myth-tag" aria-hidden="true">Myth</span><span class="myth-text">Eating disorders are a choice.</span></button>
+          <div class="truth-wrap"><p class="truth"><span class="truth-tag">Truth</span>They're complex illnesses shaped by biology, psychology and environment. Nobody chooses one.</p></div></li>
+        <li class="myth reveal"><button aria-expanded="false"><span class="myth-tag" aria-hidden="true">Myth</span><span class="myth-text">You can tell by looking at someone.</span></button>
+          <div class="truth-wrap"><p class="truth"><span class="truth-tag">Truth</span>Most people with eating disorders are not visibly underweight. Size tells you nothing about suffering.</p></div></li>
+        <li class="myth reveal"><button aria-expanded="false"><span class="myth-tag" aria-hidden="true">Myth</span><span class="myth-text">Only teenage girls get them.</span></button>
+          <div class="truth-wrap"><p class="truth"><span class="truth-tag">Truth</span>People of every gender, age, culture and background are affected — including men, older adults and children.</p></div></li>
+        <li class="myth reveal"><button aria-expanded="false"><span class="myth-tag" aria-hidden="true">Myth</span><span class="myth-text">It's not serious enough to need help.</span></button>
+          <div class="truth-wrap"><p class="truth"><span class="truth-tag">Truth</span>If it's affecting your life, it's serious enough. You don't need to be "sick enough" to reach out.</p></div></li>
+        <li class="myth reveal"><button aria-expanded="false"><span class="myth-tag" aria-hidden="true">Myth</span><span class="myth-text">Full recovery isn't possible.</span></button>
+          <div class="truth-wrap"><p class="truth"><span class="truth-tag">Truth</span>Many people fully recover. With support, healing is possible at any stage.</p></div></li>
+        <li class="myth reveal"><button aria-expanded="false"><span class="myth-tag" aria-hidden="true">Myth</span><span class="myth-text">It's just about food.</span></button>
+          <div class="truth-wrap"><p class="truth"><span class="truth-tag">Truth</span>Food is often where distress shows up. Underneath can be anxiety, control, trauma, grief or identity.</p></div></li>
       </ol>
     </section>
 
-    <figure class="band" aria-hidden="true"><img data-photo="1532028205213-4c4fa81306d4" alt=""></figure>
+    <figure class="band"><img data-photo="1532028205213-4c4fa81306d4" alt=""><figcaption class="band-quote"><p>You are allowed to <em>take up space</em><br>— at every size, on every day.</p></figcaption></figure>
 
     <section id="nourish" class="chapter nourish">
       <div class="chapter-head reveal">
         <h2>What your food gives back</h2>
-        <p>Choose what you ate today, or what you might eat. Watch what it brings to your body — and which parts of you are quietly saying thank you.</p>
+        <p>Choose what you ate today, or what you might eat. Watch what it brings to your body — and which parts of you are <em>quietly saying thank you.</em></p>
         <p class="no-numbers">There are no calories, grams or scores here, on purpose. Counting can feed an eating disorder. All foods fit, and every one of them gives you something.</p>
       </div>
 
+      <div class="nourish-grid">
+      <div class="nourish-pick">
       <div class="pantry reveal" id="pantry" role="group" aria-label="Choose foods"></div>
       <form class="food-add reveal" id="foodAdd">
         <label class="sr" for="foodInput">Add a food</label>
@@ -290,19 +348,25 @@
         <button class="btn btn-line plate-clear" id="plateClear" hidden>Clear plate</button>
       </div>
 
-      <div class="nourish-views">
         <div class="nutrients reveal">
           <h3>What it brings</h3>
           <p class="hint">Brighter means more of your foods carry it. Tap one to learn what it does.</p>
           <div class="nutrient-field" id="nutrientField"></div>
           <p class="nutrient-note" id="nutrientNote">Choose a food to see what it brings.</p>
         </div>
+      </div>
         <div class="body-map reveal">
           <h3>Who's saying thank you</h3>
           <p class="hint">Glowing parts are being looked after. Tap one to hear from it.</p>
           <div class="body-wrap">
-            <svg class="body-svg" id="bodySvg" viewBox="0 0 240 460" role="img" aria-label="An outline of a human body with glowing areas that your foods help">
-              <path class="silhouette" d="M120 18c22 0 36 16 36 38s-14 40-36 40-36-18-36-40 14-38 36-38zM96 102c-26 6-46 18-52 44l-16 92c-2 12 14 16 18 4l20-80 4 70-12 182c-1 16 22 18 24 2l22-150h12l22 150c2 16 25 14 24-2l-12-182 4-70 20 80c4 12 20 8 18-4l-16-92c-6-26-26-38-52-44-8 6-16 8-24 8s-16-2-24-8z"/>
+            <svg class="body-svg" id="bodySvg" viewBox="0 0 240 460" role="img" aria-label="A smiling person with glowing areas that your foods help">
+              <path class="silhouette" d="M108 82h24v16c0 4 4 7 12 9c24 6 38 18 44 39l16 92c2 12-14 16-18 4l-20-80-4 70 12 182c1 16-22 18-24 2l-22-150h-12l-22 150c-2 16-25 14-24-2l12-182-4-70-20 80c-4 12-20 8-18-4l16-92c6-21 20-33 44-39c8-2 12-5 12-9z"/>
+              <circle class="silhouette" cx="120" cy="54" r="38"/>
+              <g class="face">
+                <circle class="cheek" cx="96" cy="64" r="7"/><circle class="cheek" cx="144" cy="64" r="7"/>
+                <path class="eye" d="M101 50q6-7 12 0M127 50q6-7 12 0"/>
+                <path class="smile" d="M100 62q20 26 40 0q-20 7-40 0z"/>
+              </g>
             </svg>
             <div class="body-spots" id="bodySpots"></div>
           </div>
@@ -313,7 +377,7 @@
       <p class="fine">This is gentle general information, not medical or dietary advice. A dietitian who specialises in eating disorders can help you build a way of eating that's right for you.</p>
     </section>
 
-    <figure class="band" aria-hidden="true"><img data-photo="1546473491-cc3f5bba6705" alt=""></figure>
+    <figure class="band"><img data-photo="1546473491-cc3f5bba6705" alt=""><figcaption class="band-quote"><p>Feeding yourself is <em>an act of courage.</em><br>Every meal counts.</p></figcaption></figure>
 
     <section id="help" class="chapter">
       <div class="chapter-head reveal">
@@ -327,7 +391,7 @@
       <p class="fine">Numbers last checked October 2026. Services change — if one doesn't connect, try the organisation's website.</p>
     </section>
 
-    <figure class="band" aria-hidden="true"><img data-photo="1497250681960-ef046c08a56e" alt=""></figure>
+    <figure class="band"><img data-photo="1497250681960-ef046c08a56e" alt=""><figcaption class="band-quote"><p>Asking for help is not weakness.<br><em>It's how the roots grow.</em></p></figcaption></figure>
 
     <div id="resources" class="resources">
       <nav class="res-nav" aria-label="Resources" id="resNav">
@@ -403,27 +467,28 @@
       </div>
       <div class="care">
         <details class="care-item reveal" open><summary>Start with care, not food</summary>
-          <p>Pick a calm, private moment. Use "I" statements: <em>"I've noticed you seem stressed around meals, and I care about you."</em> Talk about feelings and behaviour you've seen, not weight or appearance.</p></details>
+          <p>Pick a <em>calm, private</em> moment. Use "I" statements: <em>"I've noticed you seem stressed around meals, and I care about you."</em> Talk about feelings and behaviour you've seen, not weight or appearance.</p></details>
         <details class="care-item reveal"><summary>Expect resistance — and stay</summary>
-          <p>Denial, anger or secrecy are common. That doesn't mean you failed. Let them know the door stays open and you're not going anywhere.</p></details>
+          <p>Denial, anger or secrecy are common. That doesn't mean you failed. Let them know <em>the door stays open</em> and you're not going anywhere.</p></details>
         <details class="care-item reveal"><summary>Leave body and diet talk behind</summary>
-          <p>Skip comments on anyone's size, "good" or "bad" foods, and compliments about weight loss. Praise who they are, not how they look.</p></details>
+          <p>Skip comments on anyone's size, "good" or "bad" foods, and compliments about weight loss. Praise <em>who they are</em>, not how they look.</p></details>
         <details class="care-item reveal"><summary>Encourage professional help</summary>
           <p>Offer to help find a doctor, therapist or dietitian experienced in eating disorders — or to sit with them while they call a helpline.</p></details>
         <details class="care-item reveal"><summary>Look after yourself too</summary>
-          <p>Supporting someone is heavy. Carer communities like F.E.A.S.T. and Beat's carer services exist for you as well.</p></details>
+          <p>Supporting someone is heavy. Carer communities like F.E.A.S.T. and Beat's carer services exist <em>for you</em> as well.</p></details>
       </div>
     </section>
 
     <section id="notes" class="chapter">
       <div class="chapter-head reveal">
         <h2>Leave a note for the morning</h2>
-        <p>Drag them anywhere. Write your own — it stays only on this device.</p>
+        <p>Drag them anywhere, pick a colour, and remove any you don't need. Your notes stay <em>only on this device.</em></p>
       </div>
       <div class="board reveal" id="board"></div>
       <form class="note-form reveal" id="noteForm">
         <label class="sr" for="noteInput">Write a kind note</label>
         <input id="noteInput" maxlength="90" placeholder="Something kind for future you…" autocomplete="off">
+        <div class="note-colours" role="radiogroup" aria-label="Note colour" id="noteColours"></div>
         <button class="btn btn-solid" type="submit">Pin it</button>
       </form>
     </section>
@@ -441,8 +506,9 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   <script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
-  <script src="shared/helplines.js?v=7"></script>
-  <script src="shared/resources.js?v=7"></script>
-  <script src="script.js?v=7"></script>
+  <script src="shared/helplines.js?v=11"></script>
+  <script src="shared/resources.js?v=11"></script>
+  <script src="shared/sound.js?v=11"></script>
+  <script src="script.js?v=11"></script>
 </body>
 </html>
