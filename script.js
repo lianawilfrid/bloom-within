@@ -8,7 +8,9 @@
 
   /* ---------- photographs (Unsplash, served at the size each screen needs) ---------- */
   const photoURL = (id, w) => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&q=82&w=${w}`;
-  const imgs = [...document.querySelectorAll("img[data-photo]")];
+  // your own photos (data-local) load as they are; Unsplash photos get a size for every screen
+  document.querySelectorAll("img[data-local]").forEach((img) => { img.decoding = "async"; img.src = img.dataset.local; });
+  const imgs = [...document.querySelectorAll("img[data-photo], img[data-local]")];
   // Any photo shown full-screen somewhere uses the full-screen sizes everywhere,
   // so the browser downloads it once and every copy comes from cache.
   const fullscreen = new Set(
@@ -16,6 +18,7 @@
   );
   imgs.forEach((img) => {
     const id = img.dataset.photo;
+    if (!id) return;
     const fixed = Number(img.dataset.w);
     let widths, sizes;
     if (fullscreen.has(id)) { widths = [1280, 1920, 2560, 3200, 3840]; sizes = "110vw"; }
@@ -160,7 +163,7 @@
         defaults: { ease: "none" },
         scrollTrigger: {
           start: 0, end: "max", scrub: 1.2,
-          onUpdate: (self) => root.classList.toggle("day", self.progress > 0.62),
+          onUpdate: (self) => root.classList.toggle("day", self.progress > 0.7), // dark text only once the pink sunrise gives way to morning
         },
       });
       layers.slice(1).forEach((layer, i) => {
@@ -168,7 +171,7 @@
         if (!still) sky.fromTo(layer, { scale: 1.04 }, { scale: 1, duration: 2 }, i);
       });
       // mist gathers in the blue hour, glows at sunrise, and burns off by morning
-      sky.fromTo("#mist", { opacity: 0 }, { opacity: 0.6, duration: 1.2 }, 0.5)
+      sky.fromTo("#mist", { opacity: 0 }, { opacity: 0.28, duration: 1.2 }, 0.5)
         .to("#mist", { opacity: 0, duration: 1.2 }, 2.6);
 
       // Headings come into focus word by word, like eyes adjusting to the light.
