@@ -23,6 +23,12 @@ window.BLOOM_HELPLINES = {
     { kind: "24/7 crisis", name: "Lifeline", desc: "Crisis support and suicide prevention, any time.", contact: "13 11 14", href: "tel:131114", type: "call", site: "lifeline.org.au" },
     { kind: "Youth", name: "Kids Helpline", desc: "Free counselling for ages 5–25, 24/7.", contact: "1800 55 1800", href: "tel:1800551800", type: "call", site: "kidshelpline.com.au" },
   ] },
+  in: { label: "India", lines: [
+    { kind: "24/7 government helpline", name: "Tele-MANAS", desc: "Free, round-the-clock mental health counselling from the Government of India, with referrals to specialist care. Also 1-800-891-4416.", contact: "Call 14416", href: "tel:14416", type: "call", site: "telemanas.mohfw.gov.in" },
+    { kind: "24/7 call or WhatsApp", name: "Vandrevala Foundation", desc: "Free mental health support any hour of the day or night, by phone or WhatsApp, from anywhere in India.", contact: "+91 9999 666 555", href: "tel:+919999666555", type: "call", site: "vandrevalafoundation.com" },
+    { kind: "Professional counselling", name: "iCall (TISS)", desc: "Trained counsellors from the Tata Institute of Social Sciences. Mon–Sat, 8am–9pm. Email icall@tiss.ac.in.", contact: "9152987821", href: "tel:+919152987821", type: "call", site: "icallhelpline.org" },
+    { kind: "Eating & body image", name: "Find a Helpline — India", desc: "Free, confidential services across Indian states that support eating and body image concerns.", contact: "findahelpline.com", href: "https://findahelpline.com/countries/in/topics/eating-body-image", type: "web", site: "findahelpline.com" },
+  ] },
   intl: { label: "Worldwide", lines: [
     { kind: "Directory", name: "Find a Helpline", desc: "More than 1,700 free helplines in over 175 countries.", contact: "findahelpline.com", href: "https://findahelpline.com", type: "web", site: "findahelpline.com" },
     { kind: "Families", name: "F.E.A.S.T.", desc: "Global support and education for parents and carers.", contact: "feast-ed.org", href: "https://www.feast-ed.org", type: "web", site: "feast-ed.org" },

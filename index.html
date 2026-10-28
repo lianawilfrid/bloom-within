@@ -23,7 +23,7 @@
 
   <!-- The real sky: five photographs, crossfaded from midnight to morning as you scroll -->
   <div class="sky" aria-hidden="true">
-    <img class="sky-layer" data-photo="1465101046530-73398c7f28ca" alt="">
+    <img class="sky-layer" data-photo="1548625361-58a9b86aa83b" alt="">
     <img class="sky-layer" data-photo="1457167789633-ff2233ef2b0a" alt="">
     <img class="sky-layer" data-photo="1534271057238-c2c170a76672" alt="">
     <img class="sky-layer" data-photo="1577337473192-fec17938c468" alt="">
@@ -43,8 +43,9 @@
       <ul id="menu">
         <li><a href="#breathe">Breathe</a></li>
         <li><a href="#know">Understand</a></li>
-        <li><a href="#myths">Myths</a></li>
+        <li><a href="#nourish">Nourish</a></li>
         <li><a href="#help">Get help</a></li>
+        <li><a href="#resources">Resources</a></li>
         <li><a href="#support">Support someone</a></li>
       </ul>
     </nav>
@@ -55,7 +56,7 @@
     <!-- Pinned intro: the full-screen night photo settles into a grid of morning -->
     <section class="intro" id="intro">
       <div class="mosaic" id="mosaic">
-        <figure class="tile t-hero" id="heroTile"><img data-photo="1465101046530-73398c7f28ca" alt="The Milky Way over a dark line of trees"></figure>
+        <figure class="tile t-hero" id="heroTile"><img data-photo="1548625361-58a9b86aa83b" alt="The Milky Way glowing above a dark mountain ridge"></figure>
         <figure class="tile t-a"><img data-photo="1457167789633-ff2233ef2b0a" alt="Trees in silhouette as the sky turns blue before dawn"></figure>
         <figure class="tile t-b"><img data-photo="1503919483171-9ffc1debc390" alt="Small white flowers backlit by early sun"></figure>
         <figure class="tile t-c"><img data-photo="1497250681960-ef046c08a56e" alt="Bright green fern fronds"></figure>
@@ -67,7 +68,7 @@
         </div>
       </div>
 
-      <div class="hero-shot" id="heroShot" aria-hidden="true"><img data-photo="1465101046530-73398c7f28ca" alt=""></div>
+      <div class="hero-shot" id="heroShot" aria-hidden="true"><img data-photo="1548625361-58a9b86aa83b" alt=""></div>
       <div class="hero-copy" id="heroCopy">
         <h1>You are not alone.</h1>
         <p>Eating disorders are serious, treatable illnesses — not choices, not vanity, not your fault. However dark it feels right now, morning comes.</p>
@@ -92,16 +93,21 @@
       </div>
 
       <div class="ground reveal">
-        <h3>Or come back to the room with 5‑4‑3‑2‑1</h3>
-        <p>Check each one off once you've noticed it.</p>
-        <ul class="ground-list" id="groundList">
-          <li><label><input type="checkbox"><span><b>5</b> things you can see</span></label></li>
-          <li><label><input type="checkbox"><span><b>4</b> things you can touch</span></label></li>
-          <li><label><input type="checkbox"><span><b>3</b> things you can hear</span></label></li>
-          <li><label><input type="checkbox"><span><b>2</b> things you can smell</span></label></li>
-          <li><label><input type="checkbox"><span><b>1</b> kind thing to say to yourself</span></label></li>
-        </ul>
-        <p class="ground-done" id="groundDone">You're here. Right now. That's enough.</p>
+        <h3>Come back to the room with 5‑4‑3‑2‑1</h3>
+        <p>Each time you notice something, touch the water. Let the ripple carry it away.</p>
+        <div class="pond" id="pond">
+          <img data-photo="1507327160427-b29d8a92f971" data-w="1600" alt="" id="pondPhoto" crossorigin="anonymous">
+          <canvas id="pondCanvas" aria-hidden="true"></canvas>
+          <button class="pond-hit" id="pondHit" aria-describedby="pondPrompt">
+            <span class="sr">Touch the water each time you notice something</span>
+          </button>
+          <div class="pond-ui" aria-live="polite">
+            <p class="pond-step" id="pondStep">1 of 5</p>
+            <p class="pond-prompt" id="pondPrompt">Notice <b>5</b> things you can see</p>
+            <div class="pond-dots" id="pondDots" aria-hidden="true"></div>
+          </div>
+          <button class="pond-reset" id="pondReset" hidden>Begin again</button>
+        </div>
       </div>
     </section>
 
@@ -136,6 +142,34 @@
       </div>
     </section>
 
+    <section id="roots" class="chapter roots">
+      <div class="chapter-head reveal">
+        <h2>Where it can come from</h2>
+        <p>There is rarely one cause. Eating disorders grow from many roots at once — and none of them are your fault.</p>
+      </div>
+      <div class="roots-grid">
+        <article class="root reveal">
+          <h3>Biology</h3>
+          <p>Genes, temperament and brain chemistry all play a part. Eating disorders often run in families, the same way anxiety or depression can.</p>
+        </article>
+        <article class="root reveal">
+          <h3>Mind</h3>
+          <p>Anxiety, perfectionism, low self-worth and a need to feel in control often sit underneath. Food can become the place where those feelings show up.</p>
+        </article>
+        <article class="root reveal">
+          <h3>The world around us</h3>
+          <p>Diet culture, weight stigma, bullying about bodies, and pressure in sport or dance can all add weight to what someone is already carrying.</p>
+        </article>
+      </div>
+      <div class="trauma reveal">
+        <h3>Sometimes, it starts with trauma</h3>
+        <p>Many people living with an eating disorder have been through something painful — abuse, neglect, violence, bullying, grief, or living somewhere that never felt safe. Research has found that trauma and post-traumatic stress are common alongside eating disorders, especially bulimia and binge eating.</p>
+        <p>For some people, restricting, bingeing or purging becomes a way to cope: to numb, to feel in control, or to survive feelings that were too big to hold. That isn't weakness. It's a mind trying to protect you.</p>
+        <p class="trauma-kind">If this is part of your story, you are not alone, and it was not your fault. Trauma-informed therapists can help you heal both — the eating disorder and what's underneath it.</p>
+        <p class="source">Sources: <a href="https://doi.org/10.1080/10640260701454311" target="_blank" rel="noopener">Brewerton, <i>Eating Disorders</i>, 2007</a> · <a href="https://doi.org/10.1016/S0140-6736(20)30059-3" target="_blank" rel="noopener">Treasure et al., <i>The Lancet</i>, 2020</a></p>
+      </div>
+    </section>
+
     <section id="myths" class="chapter">
       <div class="chapter-head reveal">
         <h2>Some things we've been told aren't true</h2>
@@ -157,6 +191,50 @@
       </ol>
     </section>
 
+    <figure class="band" aria-hidden="true"><img data-photo="1532028205213-4c4fa81306d4" alt=""></figure>
+
+    <section id="nourish" class="chapter nourish">
+      <div class="chapter-head reveal">
+        <h2>What your food gives back</h2>
+        <p>Choose what you ate today, or what you might eat. Watch what it brings to your body — and which parts of you are quietly saying thank you.</p>
+        <p class="no-numbers">There are no calories, grams or scores here, on purpose. Counting can feed an eating disorder. All foods fit, and every one of them gives you something.</p>
+      </div>
+
+      <div class="pantry reveal" id="pantry" role="group" aria-label="Choose foods"></div>
+      <form class="food-add reveal" id="foodAdd">
+        <label class="sr" for="foodInput">Add a food</label>
+        <input id="foodInput" list="foodList" placeholder="Search a food… (try dal, mango, pizza)" autocomplete="off">
+        <datalist id="foodList"></datalist>
+        <button class="btn btn-solid" type="submit">Add</button>
+      </form>
+
+      <div class="plate-row reveal">
+        <div class="plate" id="plate" aria-live="polite"><p class="plate-empty">Your plate is waiting. Tap a few foods above.</p></div>
+        <button class="btn btn-line plate-clear" id="plateClear" hidden>Clear plate</button>
+      </div>
+
+      <div class="nourish-views">
+        <div class="nutrients reveal">
+          <h3>What it brings</h3>
+          <p class="hint">Brighter means more of your foods carry it. Tap one to learn what it does.</p>
+          <div class="nutrient-field" id="nutrientField"></div>
+          <p class="nutrient-note" id="nutrientNote">Choose a food to see what it brings.</p>
+        </div>
+        <div class="body-map reveal">
+          <h3>Who's saying thank you</h3>
+          <p class="hint">Glowing parts are being looked after. Tap one to hear from it.</p>
+          <div class="body-wrap">
+            <svg class="body-svg" id="bodySvg" viewBox="0 0 240 460" role="img" aria-label="An outline of a human body with glowing areas that your foods help">
+              <path class="silhouette" d="M120 18c22 0 36 16 36 38s-14 40-36 40-36-18-36-40 14-38 36-38zM96 102c-26 6-46 18-52 44l-16 92c-2 12 14 16 18 4l20-80 4 70-12 182c-1 16 22 18 24 2l22-150h12l22 150c2 16 25 14 24-2l-12-182 4-70 20 80c4 12 20 8 18-4l-16-92c-6-26-26-38-52-44-8 6-16 8-24 8s-16-2-24-8z"/>
+            </svg>
+            <div class="body-spots" id="bodySpots"></div>
+          </div>
+          <p class="body-note" id="bodyNote">Your whole body is listening.</p>
+        </div>
+      </div>
+      <p class="fine">This is gentle general information, not medical or dietary advice. A dietitian who specialises in eating disorders can help you build a way of eating that's right for you.</p>
+    </section>
+
     <figure class="band" aria-hidden="true"><img data-photo="1546473491-cc3f5bba6705" alt=""></figure>
 
     <section id="help" class="chapter">
@@ -170,6 +248,76 @@
       <div class="lines" id="lines" role="tabpanel"></div>
       <p class="fine">Numbers last checked October 2026. Services change — if one doesn't connect, try the organisation's website.</p>
     </section>
+
+    <figure class="band" aria-hidden="true"><img data-photo="1497250681960-ef046c08a56e" alt=""></figure>
+
+    <div id="resources" class="resources">
+      <nav class="res-nav" aria-label="Resources" id="resNav">
+        <a href="#steps">12-step groups</a>
+        <a href="#community">Community</a>
+        <a href="#books">Books</a>
+        <a href="#podcasts">Podcasts</a>
+        <a href="#research">Research</a>
+      </nav>
+
+      <section id="steps" class="chapter">
+        <div class="chapter-head reveal">
+          <h2>Twelve-step groups</h2>
+          <p>Free, peer-led fellowships where people in recovery meet — online and in person, all over the world. Many find strength in not walking alone.</p>
+        </div>
+        <div class="step-list">
+          <a class="step reveal" href="https://eatingdisordersanonymous.org/" target="_blank" rel="noopener">
+            <h3>Eating Disorders Anonymous</h3>
+            <p>For anyone with any eating disorder. Its focus is balance and moderation, not rigid rules. "The only requirement for membership is a desire to recover."</p>
+            <span class="go">eatingdisordersanonymous.org ↗</span>
+          </a>
+          <a class="step reveal" href="https://www.aba12steps.org/" target="_blank" rel="noopener">
+            <h3>Anorexics and Bulimics Anonymous</h3>
+            <p>A fellowship for people recovering from anorexia, bulimia, compulsive overeating and related eating disorders. Free, anonymous meetings worldwide.</p>
+            <span class="go">aba12steps.org ↗</span>
+          </a>
+          <a class="step reveal" href="https://oa.org/" target="_blank" rel="noopener">
+            <h3>Overeaters Anonymous</h3>
+            <p>The longest-running food fellowship, for anyone with problems related to food — including binge eating, bulimia and anorexia.</p>
+            <span class="go">oa.org ↗</span>
+          </a>
+        </div>
+        <p class="fine">Twelve-step groups are peer support, not treatment. Some meetings use language about "abstinence" or food plans that may not suit everyone, especially in restrictive eating disorders. It's worth talking it over with your treatment team.</p>
+      </section>
+
+      <section id="community" class="chapter">
+        <div class="chapter-head reveal">
+          <h2>People who get it</h2>
+          <p>Reddit communities where people share wins, hard days and questions. Reading other people's stories can make the loneliness a little smaller.</p>
+        </div>
+        <div class="comm-list" id="commList"></div>
+        <p class="fine">Online spaces can sometimes include triggering posts. Read each community's rules first, use content warnings, and step away whenever you need to. They are not a substitute for professional help.</p>
+      </section>
+
+      <section id="books" class="chapter books">
+        <div class="chapter-head reveal">
+          <h2>Books that have helped many</h2>
+          <p>Drag or scroll the shelf. Each one opens on Open Library, where you can find it free to borrow or in a bookshop near you.</p>
+        </div>
+        <div class="shelf" id="shelf" data-lenis-prevent></div>
+      </section>
+
+      <section id="podcasts" class="chapter">
+        <div class="chapter-head reveal">
+          <h2>Something to listen to</h2>
+          <p>Podcasts on Spotify about eating disorder recovery — for walks, for the bus, for nights when the quiet gets loud.</p>
+        </div>
+        <div class="pod-list" id="podList"></div>
+      </section>
+
+      <section id="research" class="chapter">
+        <div class="chapter-head reveal">
+          <h2>What the research says</h2>
+          <p>Peer-reviewed reviews of each eating disorder, for anyone who wants to go deeper. Some are free to read; others may be behind a paywall.</p>
+        </div>
+        <ol class="papers" id="papers"></ol>
+      </section>
+    </div>
 
     <section id="support" class="chapter">
       <div class="chapter-head reveal">
@@ -216,6 +364,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   <script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
   <script src="shared/helplines.js"></script>
+  <script src="shared/resources.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
