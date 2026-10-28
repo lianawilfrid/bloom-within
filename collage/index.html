@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Bloom Within — Paper Collage</title>
+  <meta name="description" content="Gentle help, resources and support for anyone affected by an eating disorder — a handmade zine from people who get it.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bowlby+One&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Caveat:wght@600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script>document.documentElement.classList.add("js");</script>
+</head>
+<body>
+  <!-- torn-paper edge: noise displaces each scrap's outline so no two edges match -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <filter id="torn" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="3" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="9" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </svg>
+
+  <a class="quick-exit" href="https://www.google.com/search?q=weather" rel="noreferrer" id="quickExit">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>Quick exit
+  </a>
+
+  <header class="bar" id="bar">
+    <a href="#top" class="mark paper" style="--paper:#fffdf6;--r:-2deg">Bloom Within</a>
+    <nav aria-label="Sections">
+      <button class="chip menu" id="menuBtn" aria-expanded="false" aria-controls="menu">Menu</button>
+      <ul id="menu">
+        <li><a href="#breathe">Breathe</a></li>
+        <li><a href="#know">Understand</a></li>
+        <li><a href="#myths">Myths</a></li>
+        <li><a href="#help">Get help</a></li>
+        <li><a href="#support">Support someone</a></li>
+      </ul>
+    </nav>
+    <button class="chip" id="calmBtn" aria-pressed="false">Calm mode</button>
+  </header>
+
+  <main id="top">
+    <section class="hero" id="hero">
+      <span class="confetti star" data-depth="0.6" style="--c:#c6f432;top:16%;left:62%"></span>
+      <span class="confetti dot" data-depth="1.1" style="--c:#ff5fa2;top:70%;right:6%"></span>
+      <span class="confetti squiggle" data-depth="0.8" style="--c:#ff8a1f;top:24%;right:3%"></span>
+      <span class="confetti dot" data-depth="0.4" style="--c:#fffdf6;top:84%;left:46%"></span>
+
+      <h1 class="words" id="words" aria-label="You are not alone.">
+        <span class="word paper" data-depth="0.5" style="--paper:#fffdf6;--r:-4deg">You</span>
+        <span class="word paper" data-depth="0.9" style="--paper:#ff5fa2;--r:3deg">are</span>
+        <span class="word paper" data-depth="0.7" style="--paper:#c6f432;--r:-2deg">not</span>
+        <span class="word paper big" data-depth="1.2" style="--paper:#ff8a1f;--r:2.5deg">alone.</span>
+      </h1>
+      <p class="hint">psst — you can drag the words around</p>
+
+      <div class="hero-note paper tape place" style="--paper:#fffdf6;--r:-1.5deg">
+        <p>Eating disorders are serious, treatable illnesses — not choices, not vanity, not your fault. This little zine is here to keep you company, and to point you to people who can help.</p>
+      </div>
+      <div class="hero-actions place">
+        <a href="#help" class="sticker" style="--paper:#ff5fa2;--r:-5deg">Find help now</a>
+        <a href="#breathe" class="sticker" style="--paper:#c6f432;--r:4deg">Breathe first</a>
+      </div>
+    </section>
+
+    <section id="breathe" class="spread">
+      <h2 class="headline paper place" style="--paper:#c6f432;--r:-2deg">Breathe with the sticker</h2>
+      <div class="breathe-row">
+        <div class="breath-box place">
+          <button class="breath" id="breath" aria-label="Start or stop the breathing exercise">
+            <svg class="breath-ring" viewBox="0 0 200 200" aria-hidden="true">
+              <defs><path id="ring" d="M100 100 m-80 0 a80 80 0 1 1 160 0 a80 80 0 1 1 -160 0"/></defs>
+              <text><textPath href="#ring">breathe in • hold • breathe out • breathe in • hold • breathe out •</textPath></text>
+            </svg>
+            <span class="breath-core"><span id="breathCue">tap me</span></span>
+          </button>
+        </div>
+        <div class="paper tape place breath-how" style="--paper:#fffdf6;--r:2deg">
+          <h3>How it works</h3>
+          <p>Breathe in for four while the sticker puffs up. Hold for four. Breathe out for six while it settles. Keep going as long as it helps.</p>
+        </div>
+      </div>
+
+      <div class="deck-wrap place">
+        <div class="paper deck-intro" style="--paper:#ff8a1f;--r:-1.5deg">
+          <h3>5‑4‑3‑2‑1, one card at a time</h3>
+          <p>Notice each thing, then toss the card away.</p>
+        </div>
+        <div class="deck" id="deck">
+          <button class="card paper" style="--paper:#fffdf6;--r:-3deg" data-i="4"><b>1</b><span>kind thing to say to yourself</span></button>
+          <button class="card paper" style="--paper:#ff5fa2;--r:2deg" data-i="3"><b>2</b><span>things you can smell</span></button>
+          <button class="card paper" style="--paper:#c6f432;--r:-1deg" data-i="2"><b>3</b><span>things you can hear</span></button>
+          <button class="card paper" style="--paper:#8fd3ff;--r:3deg" data-i="1"><b>4</b><span>things you can touch</span></button>
+          <button class="card paper" style="--paper:#ffd84a;--r:-2deg" data-i="0"><b>5</b><span>things you can see</span></button>
+          <div class="deck-done paper" style="--paper:#fffdf6;--r:1deg"><p class="hand">You did it. You're here, right now.</p><button class="chip" id="deckReset">Shuffle again</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="know" class="spread">
+      <h2 class="headline paper place" style="--paper:#fffdf6;--r:1.5deg">Eating disorders can look like anything</h2>
+      <p class="lede paper place" style="--paper:#ff5fa2;--r:-1deg">They affect people of every age, gender, body size, race and background. You don't have to "look sick" to deserve help.</p>
+      <div class="scraps">
+        <details class="scrap paper place" style="--paper:#ffd84a;--r:-2deg"><summary>Anorexia</summary><p>Restricting food, an intense fear of weight gain, and a distorted view of one's own body — at any body size.</p></details>
+        <details class="scrap paper place" style="--paper:#8fd3ff;--r:2deg"><summary>Bulimia</summary><p>Cycles of eating large amounts and then trying to compensate, often hidden behind shame and secrecy.</p></details>
+        <details class="scrap paper place wide" style="--paper:#c6f432;--r:-1deg"><summary>Binge eating disorder</summary><p>Repeated episodes of eating with a feeling of loss of control, often followed by distress. It's the most common eating disorder.</p></details>
+        <details class="scrap paper place" style="--paper:#fffdf6;--r:1.5deg"><summary>ARFID</summary><p>Avoiding or restricting foods because of sensory issues, fear of choking or low interest in eating — not because of body image.</p></details>
+        <details class="scrap paper place" style="--paper:#ff8a1f;--r:-2.5deg"><summary>OSFED</summary><p>Serious eating disorders that don't fit one neat category. Just as real, and just as deserving of treatment.</p></details>
+      </div>
+      <div class="signs paper tape place" style="--paper:#fffdf6;--r:-.8deg">
+        <h3>Signs worth gently noticing</h3>
+        <ul>
+          <li>Constant preoccupation with food, eating or body shape</li>
+          <li>Skipping meals with others, or eating in secret</li>
+          <li>Rigid rules or rituals around food</li>
+          <li>Mood changes, anxiety or irritability around meals</li>
+          <li>Pulling away from friends and things once enjoyed</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="myths" class="spread">
+      <h2 class="headline paper place" style="--paper:#ff8a1f;--r:-1.5deg">Myths, meet the truth</h2>
+      <p class="hand intro place">tap a myth to slap a truth sticker on it</p>
+      <div class="myths">
+        <button class="myth paper place" style="--paper:#fffdf6;--r:-1deg" aria-expanded="false"><span class="m">Eating disorders are a choice.</span><span class="truth paper" style="--paper:#c6f432">They're complex illnesses shaped by biology, psychology and environment. Nobody chooses one.</span></button>
+        <button class="myth paper place" style="--paper:#fffdf6;--r:1.2deg" aria-expanded="false"><span class="m">You can tell by looking at someone.</span><span class="truth paper" style="--paper:#8fd3ff">Most people with eating disorders are not visibly underweight. Size tells you nothing about suffering.</span></button>
+        <button class="myth paper place" style="--paper:#fffdf6;--r:-1.6deg" aria-expanded="false"><span class="m">Only teenage girls get them.</span><span class="truth paper" style="--paper:#ffd84a">People of every gender, age, culture and background are affected — including men, older adults and children.</span></button>
+        <button class="myth paper place" style="--paper:#fffdf6;--r:.8deg" aria-expanded="false"><span class="m">It's not serious enough to need help.</span><span class="truth paper" style="--paper:#ff5fa2">If it's affecting your life, it's serious enough. You don't need to be "sick enough" to reach out.</span></button>
+        <button class="myth paper place" style="--paper:#fffdf6;--r:-1deg" aria-expanded="false"><span class="m">Full recovery isn't possible.</span><span class="truth paper" style="--paper:#c6f432">Many people fully recover. With support, healing is possible at any stage.</span></button>
+        <button class="myth paper place" style="--paper:#fffdf6;--r:1.4deg" aria-expanded="false"><span class="m">It's just about food.</span><span class="truth paper" style="--paper:#ff8a1f">Food is often where distress shows up. Underneath can be anxiety, control, trauma, grief or identity.</span></button>
+      </div>
+    </section>
+
+    <section id="help" class="spread">
+      <h2 class="headline paper place" style="--paper:#ff5fa2;--r:1deg">Help is one message away</h2>
+      <div class="notebook paper tape place" style="--paper:#fffdf6;--r:-.6deg">
+        <p class="nb-lede">Choose where you are. If you're in immediate danger, call your local emergency number.</p>
+        <div class="regions" role="tablist" aria-label="Choose your region" id="regions"></div>
+        <div class="lines" id="lines" role="tabpanel"></div>
+        <p class="fine">Numbers last checked October 2026. Services change — if one doesn't connect, try the organisation's website.</p>
+      </div>
+    </section>
+
+    <section id="support" class="spread">
+      <h2 class="headline paper place" style="--paper:#c6f432;--r:-1deg">When it's someone you love</h2>
+      <div class="care paper place" style="--paper:#ffd84a;--r:.8deg">
+        <details open><summary>Start with care, not food</summary>
+          <p>Pick a calm, private moment. Use "I" statements: <em>"I've noticed you seem stressed around meals, and I care about you."</em> Talk about feelings and behaviour you've seen, not weight or appearance.</p></details>
+        <details><summary>Expect resistance — and stay</summary>
+          <p>Denial, anger or secrecy are common. That doesn't mean you failed. Let them know the door stays open and you're not going anywhere.</p></details>
+        <details><summary>Leave body and diet talk behind</summary>
+          <p>Skip comments on anyone's size, "good" or "bad" foods, and compliments about weight loss. Praise who they are, not how they look.</p></details>
+        <details><summary>Encourage professional help</summary>
+          <p>Offer to help find a doctor, therapist or dietitian experienced in eating disorders — or to sit with them while they call a helpline.</p></details>
+        <details><summary>Look after yourself too</summary>
+          <p>Supporting someone is heavy. Carer communities like F.E.A.S.T. and Beat's carer services exist for you as well.</p></details>
+      </div>
+    </section>
+
+    <section id="notes" class="spread">
+      <h2 class="headline paper place" style="--paper:#8fd3ff;--r:1.5deg">Make your own affirmation</h2>
+      <p class="hand intro place">drag the word magnets, or add your own — it all stays on this device</p>
+      <div class="fridge place" id="fridge"></div>
+      <form class="magnet-form place" id="magnetForm">
+        <label class="sr" for="magnetInput">Add a word or phrase</label>
+        <input id="magnetInput" maxlength="40" placeholder="add a word or phrase…" autocomplete="off">
+        <button class="sticker" type="submit" style="--paper:#ff5fa2;--r:-2deg">Stick it</button>
+      </form>
+    </section>
+  </main>
+
+  <footer class="close">
+    <p class="close-big"><span class="word paper place" style="--paper:#fffdf6;--r:-2deg">Recovery is possible.</span><span class="word paper place" style="--paper:#ff8a1f;--r:2deg">So are you.</span></p>
+    <p>This site offers information and support, not medical advice. Please reach out to a qualified professional.</p>
+    <p>Press <kbd>Esc</kbd> twice to leave quickly.</p>
+  </footer>
+
+  <script src="../shared/helplines.js"></script>
+  <script src="script.js"></script>
+  <script src="../shared/switcher.js" data-root="../"></script>
+</body>
+</html>
