@@ -18,7 +18,7 @@
     const id = img.dataset.photo;
     const fixed = Number(img.dataset.w);
     let widths, sizes;
-    if (fullscreen.has(id)) { widths = [1280, 1920, 2560, 3200]; sizes = "100vw"; }
+    if (fullscreen.has(id)) { widths = [1280, 1920, 2560, 3200, 3840]; sizes = "110vw"; }
     else if (fixed) { widths = [Math.round(fixed * 0.66), fixed]; sizes = `${Math.round(fixed / 2.6)}px`; }
     else { widths = [640, 1080, 1600]; sizes = "(max-width: 820px) 50vw, 25vw"; }
     img.sizes = sizes;
@@ -165,7 +165,7 @@
       });
       layers.slice(1).forEach((layer, i) => {
         sky.to(layer, { opacity: 1, duration: 1 }, i);
-        if (!still) sky.fromTo(layer, { scale: 1.08 }, { scale: 1, duration: 2 }, i);
+        if (!still) sky.fromTo(layer, { scale: 1.04 }, { scale: 1, duration: 2 }, i);
       });
       // mist gathers in the blue hour, glows at sunrise, and burns off by morning
       sky.fromTo("#mist", { opacity: 0 }, { opacity: 0.6, duration: 1.2 }, 0.5)
@@ -266,7 +266,7 @@
     else { sunWin.classList.remove("in", "out"); cue.textContent = "Tap the sunrise to begin"; }
   });
 
-  /* ---------- 5-4-3-2-1 on still water: each noticing drops a real-looking ripple ---------- */
+  /* ---------- 5-4-3-2-1 on real water: a full-resolution photo, rippled on the GPU ---------- */
   function startPond() {
     const pond = document.getElementById("pond");
     const photo = document.getElementById("pondPhoto");
@@ -276,108 +276,202 @@
     const promptEl = document.getElementById("pondPrompt");
     const dotsEl = document.getElementById("pondDots");
     const reset = document.getElementById("pondReset");
+    // each sense gets its own stretch of water
     const senses = [
-      [5, "Notice <b>5</b> things you can see"],
-      [4, "Notice <b>4</b> things you can touch"],
-      [3, "Notice <b>3</b> things you can hear"],
-      [2, "Notice <b>2</b> things you can smell"],
-      [1, "Notice <b>1</b> kind thing you can say to yourself"],
+      // [count, prompt, photo, where the water starts in that photo (0 = top, 1 = bottom)]
+      [5, "Notice <b>5</b> things you can see", "1533757879476-8f4a3cb1ae4b", 0.66],
+      [4, "Notice <b>4</b> things you can touch", "1742301478868-cbea63e8466a", 0],
+      [3, "Notice <b>3</b> things you can hear", "1634145124254-f62127c0f5bb", 0.56],
+      [2, "Notice <b>2</b> things you can smell", "1748131816092-4468f57ad80e", 0.5],
+      [1, "Notice <b>1</b> kind thing you can say to yourself", "1678811871679-2335c4b71d43", 0.52],
     ];
-    let stage = 0, count = 0;
+    const photoW = Math.min(2400, Math.round(Math.max(1200, pond.clientWidth * Math.min(2, devicePixelRatio || 1))));
+    const photoURL = (id) => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&q=85&w=${photoW}`;
+    const loadPhoto = (id) => new Promise((res, rej) => {
+      const im = new Image();
+      im.crossOrigin = "anonymous";
+      im.onload = () => res(im); im.onerror = rej;
+      im.src = photoURL(id);
+    });
 
-    // Water simulation: two height maps; each frame a wave spreads to its neighbours and slowly settles.
-    const ctx2 = canvas.getContext("2d", { willReadFrequently: true });
-    let W = 0, H = 0, cur, prev, tex = null, out, running = false, visible = false;
-    const size = () => {
-      const r = pond.getBoundingClientRect();
-      W = Math.max(160, Math.round(Math.min(420, r.width / 2)));
-      H = Math.max(100, Math.round(W * (r.height / r.width)));
-      canvas.width = W; canvas.height = H;
-      cur = new Float32Array(W * H); prev = new Float32Array(W * H);
-      out = ctx2.createImageData(W, H);
-      // sample the photograph at the simulation's size, cropped like object-fit: cover
-      try {
-        const iw = photo.naturalWidth, ih = photo.naturalHeight, s = Math.max(W / iw, H / ih);
-        ctx2.drawImage(photo, (W - iw * s) / 2, (H - ih * s) / 2, iw * s, ih * s);
-        tex = ctx2.getImageData(0, 0, W, H).data;
-      } catch (e) { tex = null; } // photo blocked from reading: ripples fall back to light rings only
+    // Without WebGL the sharp photo stays, ripples become CSS rings, and the water still changes.
+    let drop = (fx, fy, strength = 1) => {
+      const ring = document.createElement("span");
+      ring.className = "ring";
+      ring.style.left = `${fx * 100}%`; ring.style.top = `${fy * 100}%`;
+      ring.style.setProperty("--s", strength);
+      pond.appendChild(ring);
+      setTimeout(() => ring.remove(), 1800);
     };
-    const drop = (fx, fy, strength = 1) => {
-      const cx = Math.round(fx * W), cy = Math.round(fy * H), rad = Math.max(3, Math.round(W / 48));
-      for (let y = -rad; y <= rad; y++) for (let x = -rad; x <= rad; x++) {
-        const px = cx + x, py = cy + y;
-        if (px < 1 || py < 1 || px >= W - 1 || py >= H - 1 || x * x + y * y > rad * rad) continue;
-        prev[py * W + px] += 240 * strength * (1 - Math.sqrt(x * x + y * y) / (rad + 1));
-      }
-      if (!running) { running = true; requestAnimationFrame(tick); }
-    };
-    const tick = () => {
-      let energy = 0;
-      for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
-        const i = y * W + x;
-        let v = (prev[i - 1] + prev[i + 1] + prev[i - W] + prev[i + W]) / 2 - cur[i];
-        v -= v / 34;
-        cur[i] = v;
-        energy += v < 0 ? -v : v;
-      }
-      const t = prev; prev = cur; cur = t;
-      const d = out.data;
-      for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
-        const i = y * W + x;
-        const dx = prev[i - 1] - prev[i + 1], dy = prev[i - W] - prev[i + W];
-        const sx = Math.min(W - 1, Math.max(0, x + (dx >> 3))), sy = Math.min(H - 1, Math.max(0, y + (dy >> 3)));
-        const si = (sy * W + sx) * 4, o = i * 4, light = (dx - dy) * 0.12;
-        if (tex) { d[o] = tex[si] + light; d[o + 1] = tex[si + 1] + light; d[o + 2] = tex[si + 2] + light; d[o + 3] = 255; }
-        else { d[o] = d[o + 1] = d[o + 2] = 255; d[o + 3] = Math.min(160, Math.abs(light) * 3); }
-      }
-      ctx2.putImageData(out, 0, 0);
-      if (energy > W * H * 0.02) requestAnimationFrame(tick);
-      else running = false;
-    };
-    const paint = () => { if (!tex) return; const img = ctx2.createImageData(W, H); img.data.set(tex); ctx2.putImageData(img, 0, 0); };
+    let changeWater = (id) => { photo.srcset = ""; photo.src = photoURL(id); };
+    let isRunning = () => false, waterline = () => 0;
+    const gpu = setupGL();
+    if (gpu) ({ drop, changeWater, isRunning, waterline } = gpu);
+    else canvas.remove();
 
-    const renderDots = () => {
-      const [n] = senses[stage];
-      dotsEl.innerHTML = Array.from({ length: n }, (_, i) => `<i class="${i < count ? "on" : ""}"></i>`).join("");
-    };
-    const show = () => {
-      stepEl.textContent = `${stage + 1} of 5`;
-      promptEl.innerHTML = senses[stage][1];
-      renderDots();
-    };
+    function setupGL() {
+      const gl = canvas.getContext("webgl", { antialias: false });
+      if (!gl) return null;
+      const vs = "attribute vec2 p; varying vec2 v; void main(){ v = vec2(p.x * .5 + .5, .5 - p.y * .5); gl_Position = vec4(p, 0., 1.); }";
+      const fs = `precision mediump float;
+        varying vec2 v;
+        uniform sampler2D a, b, n;
+        uniform vec4 ca, cb;
+        uniform float mixAB, ha, hb;
+        void main() {
+          // ripples only exist on the water, fading in just below each photo's waterline
+          float water = mix(smoothstep(ha, ha + .04, v.y * ca.y + ca.w), smoothstep(hb, hb + .04, v.y * cb.y + cb.w), mixAB);
+          vec2 g = (texture2D(n, v).rg - .5) * water; // wave slope at this point
+          vec2 uv = v + g * .065;                     // refraction bends the photo under the ripple
+          vec3 A = texture2D(a, uv * ca.xy + ca.zw).rgb;
+          vec3 B = texture2D(b, uv * cb.xy + cb.zw).rgb;
+          vec3 c = mix(A, B, mixAB);
+          float lit = (g.x - g.y) * .9;               // light catching the ripple crests
+          c += max(lit, 0.) * .55 * vec3(1., .97, .9);
+          c -= max(-lit, 0.) * .22;
+          gl_FragColor = vec4(c, 1.);
+        }`;
+      const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
+      const prog = gl.createProgram();
+      gl.attachShader(prog, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, fs));
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return null;
+      gl.useProgram(prog);
+      gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+      const loc = gl.getAttribLocation(prog, "p");
+      gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+      const U = (name) => gl.getUniformLocation(prog, name);
+      const makeTex = (unit) => {
+        const t = gl.createTexture();
+        gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        return t;
+      };
+      const texA = makeTex(0), texB = makeTex(1), texN = makeTex(2);
+      gl.uniform1i(U("a"), 0); gl.uniform1i(U("b"), 1); gl.uniform1i(U("n"), 2);
+      const upload = (tex, unit, img) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img); };
+      const cover = (img) => {
+        const ca = canvas.width / canvas.height, ia = img.naturalWidth / img.naturalHeight;
+        return ia > ca ? [ca / ia, 1, (1 - ca / ia) / 2, 0] : [1, ia / ca, 0, (1 - ia / ca) / 2];
+      };
+      let imgA = null, imgB = null, mixAB = 0, fade = null, running = false, horA = 0, horB = 0;
+
+      // wave height map on a small grid; the GPU interpolates it smoothly across the full-size photo
+      let SW = 0, SH = 0, cur, prev, nrm;
+      const resize = () => {
+        const r = pond.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
+        canvas.width = Math.round(r.width * dpr); canvas.height = Math.round(r.height * dpr);
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        // more rows than the screen's shape needs, so rings flatten into ellipses like water seen at an angle
+        SW = 256; SH = Math.max(160, Math.round(SW * (r.height / r.width) * 2.4));
+        cur = new Float32Array(SW * SH); prev = new Float32Array(SW * SH); nrm = new Uint8Array(SW * SH * 4).fill(128);
+      };
+      const step = () => {
+        let energy = 0;
+        for (let y = 1; y < SH - 1; y++) for (let x = 1; x < SW - 1; x++) {
+          const i = y * SW + x;
+          let h = (prev[i - 1] + prev[i + 1] + prev[i - SW] + prev[i + SW]) / 2 - cur[i];
+          h -= h / 64;                                 // slow damping: rings travel far before settling
+          cur[i] = h;
+          energy += h < 0 ? -h : h;
+        }
+        const t = prev; prev = cur; cur = t;
+        for (let y = 1; y < SH - 1; y++) for (let x = 1; x < SW - 1; x++) {
+          const i = y * SW + x, o = i * 4;
+          nrm[o] = Math.max(0, Math.min(255, 128 + (prev[i - 1] - prev[i + 1]) * 0.9));
+          nrm[o + 1] = Math.max(0, Math.min(255, 128 + (prev[i - SW] - prev[i + SW]) * 0.9));
+        }
+        return energy;
+      };
+      const draw = () => {
+        if (!imgA) return;
+        gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, texN);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, SW, SH, 0, gl.RGBA, gl.UNSIGNED_BYTE, nrm);
+        gl.uniform4fv(U("ca"), cover(imgA));
+        gl.uniform4fv(U("cb"), cover(imgB || imgA));
+        gl.uniform1f(U("mixAB"), mixAB);
+        gl.uniform1f(U("ha"), horA); gl.uniform1f(U("hb"), horB);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      };
+      const tick = (now) => {
+        let energy = 0;
+        for (let k = 0; k < 2; k++) energy = step();   // two steps a frame so the rings travel briskly
+        if (fade) {
+          mixAB = Math.min(1, (now - fade.from) / fade.dur);
+          if (mixAB >= 1) { imgA = imgB; horA = horB; upload(texA, 0, imgA); imgB = null; mixAB = 0; fade = null; }
+        }
+        draw();
+        if (energy > SW * SH * 0.015 || fade) requestAnimationFrame(tick);
+        else { running = false; nrm.fill(128); cur.fill(0); prev.fill(0); draw(); }
+      };
+      const start = () => { if (!running && imgA) { running = true; requestAnimationFrame(tick); } };
+
+      resize();
+      horA = senses[0][3];
+      loadPhoto(senses[0][2]).then((img) => {
+        imgA = img; upload(texA, 0, img); draw();
+        pond.classList.add("live");
+        senses.slice(1).forEach(([, , id]) => loadPhoto(id).catch(() => {})); // warm the cache for each change
+      }).catch(() => canvas.remove());
+      let rt;
+      window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { resize(); draw(); }, 200); });
+
+      return {
+        isRunning: () => running,
+        // where the waterline sits on screen right now, so taps on the sky land on the water below it
+        waterline() { const c = cover(imgA || photo); return Math.max(0, Math.min(.95, (horA - c[3]) / c[1])); },
+        drop(fx, fy, strength = 1) {
+          const cx = Math.round(fx * SW), cy = Math.round(fy * SH), rad = Math.max(3, Math.round(SW / 34 * Math.sqrt(strength)));
+          for (let y = -rad; y <= rad; y++) for (let x = -rad; x <= rad; x++) {
+            const px = cx + x, py = cy + y, d = Math.sqrt(x * x + y * y);
+            if (px < 1 || py < 1 || px >= SW - 1 || py >= SH - 1 || d > rad) continue;
+            prev[py * SW + px] += 440 * strength * Math.cos((d / rad) * Math.PI / 2);
+          }
+          start();
+        },
+        changeWater(id, horizon) {
+          loadPhoto(id).then((img) => {
+            imgB = img; horB = horizon; upload(texB, 1, img);
+            fade = { from: performance.now(), dur: 1600 };
+            start();
+          }).catch(() => {});
+        },
+      };
+    }
+
+    // --- the guided steps ---
+    let stage = 0, count = 0, visible = false;
+    const renderDots = () => { dotsEl.innerHTML = Array.from({ length: senses[stage][0] }, (_, i) => `<i class="${i < count ? "on" : ""}"></i>`).join(""); };
+    const show = () => { stepEl.textContent = `${stage + 1} of 5`; promptEl.innerHTML = senses[stage][1]; renderDots(); };
     const swap = (fn) => { pond.classList.add("fade"); setTimeout(() => { fn(); pond.classList.remove("fade"); }, 450); };
     hit.addEventListener("click", (e) => {
       if (stage >= senses.length) return;
       const r = pond.getBoundingClientRect();
       const fx = e.detail ? (e.clientX - r.left) / r.width : 0.3 + Math.random() * 0.4;
-      const fy = e.detail ? (e.clientY - r.top) / r.height : 0.55 + Math.random() * 0.2;
-      drop(fx, fy, 1);
+      const wl = waterline();
+      const fy = Math.max(wl + 0.06, e.detail ? (e.clientY - r.top) / r.height : wl + 0.1 + Math.random() * (0.85 - wl));
+      drop(fx, fy, 1.2);
+      setTimeout(() => drop(fx + (Math.random() - .5) * .05, fy + (Math.random() - .5) * .05, .5), 140); // a little splash-back
       count++;
       renderDots();
       if (count >= senses[stage][0]) {
-        setTimeout(() => drop(0.5, 0.62, 2.2), 260); // one larger ripple to close each sense
+        setTimeout(() => drop(0.5, Math.min(0.9, waterline() + (1 - waterline()) * 0.45), 3), 260); // one big ripple to close each sense
         stage++; count = 0;
         swap(() => {
-          if (stage < senses.length) show();
-          else {
-            stepEl.textContent = "Done";
-            promptEl.innerHTML = "You're here. Right now. That's enough.";
-            dotsEl.innerHTML = "";
-            reset.hidden = false;
-          }
+          if (stage < senses.length) { show(); changeWater(senses[stage][2], senses[stage][3]); }
+          else { stepEl.textContent = "Done"; promptEl.innerHTML = "You're here. Right now. That's enough."; dotsEl.innerHTML = ""; reset.hidden = false; }
         });
       }
     });
-    reset.addEventListener("click", () => { stage = 0; count = 0; reset.hidden = true; swap(show); hit.focus(); });
+    reset.addEventListener("click", () => { stage = 0; count = 0; reset.hidden = true; swap(show); changeWater(senses[0][2], senses[0][3]); hit.focus(); });
 
     // a raindrop now and then while the pond is on screen, so the water feels alive
     new IntersectionObserver(([en]) => { visible = en.isIntersecting; }).observe(pond);
-    setInterval(() => { if (visible && !isCalm() && !document.hidden && !running) drop(Math.random(), 0.45 + Math.random() * 0.5, 0.35); }, 3800);
-
-    let rt;
-    window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { size(); paint(); }, 200); });
-    const ready = () => { size(); paint(); pond.classList.add("live"); };
-    if (photo.complete && photo.naturalWidth) ready(); else photo.addEventListener("load", ready, { once: true });
+    setInterval(() => { if (gpu && visible && !isCalm() && !document.hidden && !isRunning()) { const wl = waterline(); drop(Math.random(), wl + 0.08 + Math.random() * (0.9 - wl), 0.4); } }, 3500);
     show();
   }
 
@@ -415,6 +509,70 @@
     const foodsWith = (k) => [...plate.values()].filter((f) => f.has.includes(k)).map((f) => f.name.toLowerCase());
     const listWords = (arr) => arr.length < 2 ? arr.join("") : `${arr.slice(0, -1).join(", ")} and ${arr[arr.length - 1]}`;
 
+    /* fireflies: they drift around the body, and swarm happily to every part your food lights up */
+    const flyCanvas = document.getElementById("fireflies");
+    const flyBox = flyCanvas.parentElement;
+    const fctx = flyCanvas.getContext("2d");
+    let flies = [], flyOn = false, flyVisible = false, fdpr = 1;
+    const spotXY = (pk) => {
+      const s = spots.querySelector(`[data-k="${pk}"]`).getBoundingClientRect(), b = flyBox.getBoundingClientRect();
+      return [s.left + s.width / 2 - b.left, s.top + s.height / 2 - b.top];
+    };
+    const sizeFlies = () => {
+      fdpr = Math.min(2, devicePixelRatio || 1);
+      flyCanvas.width = flyBox.clientWidth * fdpr; flyCanvas.height = flyBox.clientHeight * fdpr;
+    };
+    const spawn = () => ({
+      x: Math.random() * flyBox.clientWidth, y: Math.random() * flyBox.clientHeight,
+      vx: 0, vy: 0, home: null, joy: 0, phase: Math.random() * 7, rate: 0.6 + Math.random() * 1.4, orbit: 18 + Math.random() * 26, dir: Math.random() < .5 ? -1 : 1,
+    });
+    const syncFlies = () => {
+      const want = 8 + lit.size * 4;
+      while (flies.length < want) flies.push(spawn());
+      flies.length = Math.min(flies.length, want);
+      const homes = [...lit];
+      flies.forEach((f, i) => { f.home = homes.length && i % 4 !== 0 ? homes[i % homes.length] : null; });
+    };
+    const celebrate = (pk) => { flies.forEach((f) => { if (f.home === pk || Math.random() < .35) { f.home = pk; f.joy = 1; } }); wakeFlies(); };
+    const flyTick = (now) => {
+      if (!flyVisible || document.hidden) { flyOn = false; return; }
+      const t = now / 1000, still = isCalm();
+      fctx.setTransform(fdpr, 0, 0, fdpr, 0, 0);
+      fctx.clearRect(0, 0, flyBox.clientWidth, flyBox.clientHeight);
+      fctx.globalCompositeOperation = "lighter";
+      for (const f of flies) {
+        if (!still) {
+          let tx, ty;
+          if (f.home) {
+            const [hx, hy] = spotXY(f.home), a = t * f.rate * f.dir * (1 + f.joy * 2) + f.phase;
+            tx = hx + Math.cos(a) * f.orbit * (1 - f.joy * .3); ty = hy + Math.sin(a * 1.3) * f.orbit * .7;
+          } else {
+            tx = f.x + Math.cos(t * .7 + f.phase) * 40; ty = f.y + Math.sin(t * .9 + f.phase * 2) * 30;
+          }
+          f.vx += (tx - f.x) * .004 + (Math.random() - .5) * .35;   // the buzz: tiny restless jitters
+          f.vy += (ty - f.y) * .004 + (Math.random() - .5) * .35;
+          f.vx *= .93; f.vy *= .93;
+          f.x += f.vx; f.y += f.vy;
+          f.joy = Math.max(0, f.joy - .004);
+        }
+        const blink = .45 + .55 * Math.max(0, Math.sin(t * (2.2 + f.joy * 5) + f.phase * 3)) ** 2;
+        const r = 3 + f.joy * 3, glow = 16 + f.joy * 14;
+        const g = fctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, glow);
+        g.addColorStop(0, `rgba(236, 255, 140, ${.9 * blink})`);
+        g.addColorStop(.25, `rgba(200, 255, 90, ${.35 * blink})`);
+        g.addColorStop(1, "rgba(160, 255, 60, 0)");
+        fctx.fillStyle = g;
+        fctx.beginPath(); fctx.arc(f.x, f.y, glow, 0, Math.PI * 2); fctx.fill();
+        fctx.fillStyle = `rgba(255, 255, 220, ${blink})`;
+        fctx.beginPath(); fctx.arc(f.x, f.y, r * .5, 0, Math.PI * 2); fctx.fill();
+      }
+      fctx.globalCompositeOperation = "source-over";
+      requestAnimationFrame(flyTick);
+    };
+    function wakeFlies() { if (!flyOn && flyVisible) { flyOn = true; requestAnimationFrame(flyTick); } }
+    new IntersectionObserver(([en]) => { flyVisible = en.isIntersecting; if (flyVisible) { sizeFlies(); wakeFlies(); } }).observe(flyBox);
+    window.addEventListener("resize", sizeFlies);
+
     function render() {
       plateEl.innerHTML = plate.size
         ? [...plate.values()].map((f) => `<button class="on-plate" type="button" data-n="${esc(f.name)}">${esc(f.name)}<span aria-hidden="true">×</span><span class="sr"> remove</span></button>`).join("")
@@ -434,7 +592,10 @@
         if (lv > 0) nowLit.add(pk);
         if (lv > 0 && !lit.has(pk)) { el.classList.remove("thank"); void el.offsetWidth; el.classList.add("thank"); }
       });
+      const fresh = [...nowLit].filter((pk) => !lit.has(pk));
       lit = nowLit;
+      syncFlies();
+      fresh.forEach(celebrate);
       if (!plate.size) { nNote.textContent = "Choose a food to see what it brings."; bNote.textContent = "Your whole body is listening."; }
       else bNote.textContent = `${lit.size} ${lit.size === 1 ? "part of you is" : "parts of you are"} glowing. Tap one to hear what it's saying.`;
     }
@@ -456,6 +617,7 @@
     spots.addEventListener("click", (e) => {
       const b = e.target.closest(".spot"); if (!b) return;
       const p = N.parts[b.dataset.k];
+      if (lit.has(b.dataset.k)) celebrate(b.dataset.k);
       const helpers = [...new Set(Object.entries(N.nutrients).filter(([k, n]) => n.parts.includes(b.dataset.k) && foodsWith(k).length).flatMap(([k]) => foodsWith(k)))];
       bNote.innerHTML = helpers.length
         ? `<b>${esc(p.label)}:</b> "${esc(p.thanks)}" <span class="from">Thanks to ${esc(listWords(helpers))}.</span>`
@@ -478,6 +640,322 @@
     render();
   })();
 
+  /* ---------- ride the wave: an urge-surfing timer that draws your own wave as you rate it ---------- */
+  const surf = (() => {
+    const stage = document.getElementById("surfStage");
+    const cv = document.getElementById("surfCanvas");
+    const sctx = cv.getContext("2d");
+    const timeEl = document.getElementById("surfTime");
+    const msgEl = document.getElementById("surfMsg");
+    const level = document.getElementById("surfLevel");
+    const levelOut = document.getElementById("surfLevelOut");
+    const startBtn = document.getElementById("surfStart");
+    const logBtn = document.getElementById("surfLog");
+    const doneBtn = document.getElementById("surfDone");
+    const countEl = document.getElementById("surfCount");
+    const milestones = [
+      [0, "You're on the board. Breathe slowly — longer out than in."],
+      [60, "One minute. Notice where you feel it. You don't have to do anything with it."],
+      [180, "Three minutes. Every wave crests eventually."],
+      [300, "Five minutes in. You're doing it."],
+      [600, "Ten minutes. For many people the urge is already starting to ease."],
+      [900, "Fifteen minutes. Keep breathing. Stay on the board."],
+      [1200, "Twenty minutes. You're riding it out."],
+      [1800, "Thirty minutes. Look how far you've come."],
+    ];
+    let t0 = 0, points = [], timer = null, visible = false, raf = 0, said = -1;
+    let waves = 0;
+    try { waves = Number(localStorage.getItem("bloom-waves") || 0); } catch (e) {}
+    const showCount = () => { countEl.textContent = waves ? `Waves you've ridden on this device: ${waves}. Each one counts.` : ""; };
+    showCount();
+    const elapsed = () => (t0 ? (Date.now() - t0) / 1000 : 0);
+    const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+    const size = () => { const d = Math.min(2, devicePixelRatio || 1); cv.width = stage.clientWidth * d; cv.height = stage.clientHeight * d; sctx.setTransform(d, 0, 0, d, 0, 0); };
+    const log = () => {
+      if (!t0) return;
+      points.push({ t: elapsed(), v: Number(level.value) });
+      const peak = Math.max(...points.map((p) => p.v)), now = points[points.length - 1].v;
+      if (points.length > 1 && now < peak) msgEl.textContent = `It's down from ${peak} to ${now}. The wave is already falling.`;
+      else if (points.length > 1 && now >= peak) msgEl.textContent = "This might be the crest. Breathe into it — crests don't last.";
+      draw();
+    };
+    level.addEventListener("input", () => { levelOut.textContent = level.value; });
+    let lt;
+    level.addEventListener("change", () => { clearTimeout(lt); lt = setTimeout(log, 400); });
+    logBtn.addEventListener("click", log);
+    const start = () => {
+      t0 = Date.now(); points = []; said = -1;
+      log();
+      startBtn.hidden = true; logBtn.hidden = false; doneBtn.hidden = false;
+      stage.classList.add("riding");
+      timer = setInterval(() => {
+        const s = elapsed();
+        timeEl.textContent = fmt(s);
+        const m = milestones.filter(([at]) => s >= at).length - 1;
+        if (m > said) { said = m; msgEl.textContent = milestones[m][1]; }
+        if (Math.floor(s) > 0 && Math.floor(s) % 120 === 0) { msgEl.textContent = "Check in: how strong is it now? Move the slider."; level.classList.remove("nudge"); void level.offsetWidth; level.classList.add("nudge"); }
+      }, 1000);
+      loop();
+    };
+    startBtn.addEventListener("click", start);
+    doneBtn.addEventListener("click", () => {
+      log();
+      clearInterval(timer);
+      const s = elapsed(), first = points[0].v, last = points[points.length - 1].v, peak = Math.max(...points.map((p) => p.v));
+      msgEl.textContent = `You rode it for ${fmt(s)}. It went from ${first}${peak > first ? `, up to ${peak},` : ""} to ${last}. That's a wave you didn't have to obey.`;
+      waves++; try { localStorage.setItem("bloom-waves", String(waves)); } catch (e) {}
+      showCount();
+      t0 = 0; startBtn.hidden = false; startBtn.textContent = "Ride another wave"; logBtn.hidden = true; doneBtn.hidden = true;
+      stage.classList.remove("riding");
+      draw(points);
+    });
+
+    // the drawing: a faint "typical wave" guide, your own wave as moving water, and you on top of it
+    const draw = (frozen) => {
+      const w = stage.clientWidth, h = stage.clientHeight, now = performance.now() / 1000;
+      sctx.clearRect(0, 0, w, h);
+      const pts = frozen || points, span = Math.max(60, ((pts.length ? pts[pts.length - 1].t : 0) + 10) * 1.25, (elapsed() + 10) * 1.25); // the chart widens as you ride, so your wave always fills it
+      const X = (t) => 24 + (t / span) * (w - 48), Y = (v) => h * 0.86 - (v / 10) * h * 0.52;
+      // the typical shape: rise, crest around ten minutes, ease by thirty
+      if (span >= 900) { // only meaningful once there's enough time on the chart to compare against
+        sctx.setLineDash([4, 6]); sctx.strokeStyle = "rgba(255,255,255,.35)"; sctx.lineWidth = 1.5;
+        sctx.beginPath();
+        for (let t = 0; t <= Math.min(span, 2400); t += 20) { const v = 8 * Math.exp(-Math.pow((t - 600) / 520, 2)) + 1; t ? sctx.lineTo(X(t), Y(v)) : sctx.moveTo(X(t), Y(v)); }
+        sctx.stroke(); sctx.setLineDash([]);
+      }
+      if (!pts.length) return;
+      // your wave: points joined smoothly, extended to "now" while riding
+      const path = pts.map((p) => [X(p.t), Y(p.v)]);
+      if (!frozen && t0) path.push([X(elapsed()), Y(pts[pts.length - 1].v)]);
+      const shimmer = isCalm() ? 0 : 1;
+      const surface = (x, y) => y + Math.sin(x / 22 + now * 2.2) * 2.5 * shimmer + Math.sin(x / 9 - now * 3.1) * 1.2 * shimmer;
+      sctx.beginPath(); sctx.moveTo(path[0][0], h);
+      const samples = [];
+      for (let i = 0; i < path.length - 1; i++) {
+        const [x0, y0] = path[i], [x1, y1] = path[i + 1];
+        for (let x = x0; x <= x1; x += 3) { const k = (x - x0) / Math.max(1, x1 - x0), e = k * k * (3 - 2 * k); samples.push([x, surface(x, y0 + (y1 - y0) * e)]); }
+      }
+      if (path.length === 1) samples.push([path[0][0], path[0][1]], [path[0][0] + 1, path[0][1]]);
+      samples.forEach(([x, y]) => sctx.lineTo(x, y));
+      const endX = samples[samples.length - 1][0];
+      sctx.lineTo(endX, h); sctx.closePath();
+      const g = sctx.createLinearGradient(0, h * 0.3, 0, h);
+      g.addColorStop(0, "rgba(140, 220, 235, .55)"); g.addColorStop(1, "rgba(10, 60, 90, .75)");
+      sctx.fillStyle = g; sctx.fill();
+      sctx.beginPath(); samples.forEach(([x, y], i) => (i ? sctx.lineTo(x, y) : sctx.moveTo(x, y)));
+      sctx.strokeStyle = "rgba(255,255,255,.9)"; sctx.lineWidth = 2.5; sctx.stroke(); // the foam line
+      const [sx, sy] = samples[samples.length - 1];
+      const glow = sctx.createRadialGradient(sx, sy - 6, 0, sx, sy - 6, 22);
+      glow.addColorStop(0, "rgba(255,255,255,1)"); glow.addColorStop(1, "rgba(255,255,255,0)");
+      sctx.fillStyle = glow; sctx.beginPath(); sctx.arc(sx, sy - 6, 22, 0, Math.PI * 2); sctx.fill();
+    };
+    const loop = () => {
+      cancelAnimationFrame(raf);
+      const frame = () => { draw(); if (t0 && visible && !document.hidden) raf = requestAnimationFrame(frame); };
+      raf = requestAnimationFrame(frame);
+    };
+    new IntersectionObserver(([en]) => { visible = en.isIntersecting; if (visible) { size(); t0 ? loop() : draw(points.length ? points : null); } }).observe(stage);
+    window.addEventListener("resize", () => { size(); draw(points.length && !t0 ? points : null); });
+    return { start: () => { if (!t0) start(); } };
+  })();
+
+  /* ---------- delay & distract: real ideas with real pictures ---------- */
+  (() => {
+    const pic = (id) => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&q=80&w=900`;
+    const ideas = [
+      { title: "Call or text someone", img: pic("1758876201450-cf77ab8b95bc"), text: "You don't have to explain everything. \"Can you talk for a bit?\" is enough — or just talk about anything else.", actions: [{ label: "Write a message", href: "sms:?&body=" + encodeURIComponent("Hey, can you talk for a bit? I'm having a hard moment.") }] },
+      { title: "Talk it through", img: pic("1488509082528-cefbba5ad692"), text: "Use the gentle check-in below. If you'd like an AI companion, Wysa is an anonymous, evidence-based option — it's no substitute for people or for crisis care.", actions: [{ label: "Start the check-in", go: "companion" }, { label: "Wysa ↗", href: "https://www.wysa.com/", ext: true }] },
+      { title: "Dance it out", img: "https://i.ytimg.com/vi/gkstiMe2Ybs/hqdefault.jpg", text: "Put on a Just Dance video and copy the dancers. Silly, sweaty and impossible to do while thinking about food.", actions: [{ label: "Watch on YouTube ↗", href: "https://www.youtube.com/watch?v=gkstiMe2Ybs", ext: true }, { label: "More Just Dance ↗", href: "https://www.youtube.com/@justdancegame", ext: true }] },
+      { title: "Make something", img: pic("1593037515490-c4d56a9ff5ff"), text: "Draw, paint, colour, knit, play an instrument. Busy hands quiet a busy mind — it doesn't have to be good.", actions: [] },
+      { title: "Step outside", img: pic("1758438919146-f3f59a6d2544"), text: "Walk around the block. Name five colours you can see. Fresh air and a change of scene can break the loop.", actions: [] },
+      { title: "Turn the music up", img: pic("1625786682948-2168238883d2"), text: "One song you love, start to finish, eyes closed. Sing along if you can — it's hard to hold your breath and sing.", actions: [] },
+      { title: "Write it out", img: pic("1579017308347-e53e0d2fc5e9"), text: "Ask yourself: what do I actually need right now — rest, comfort, company, or to be heard? Then write the answer.", actions: [] },
+      { title: "Cuddle an animal", img: pic("1516366434321-728a48e6b7bf"), text: "A pet, a neighbour's dog, or a few minutes of animal videos. Warm, simple, and good for your nervous system.", actions: [] },
+    ];
+    document.getElementById("ideas").innerHTML = `
+      <div class="delay reveal"><p><b>Try a ten-minute delay.</b> Start the wave timer, pick something below, and check back in when it's done.</p>
+      <button class="btn btn-solid" type="button" data-go="surf">Start a 10-minute delay</button></div>` +
+      ideas.map((d) => `<article class="idea reveal">
+        <span class="idea-pic"><img src="${esc(d.img)}" alt="" loading="lazy"></span>
+        <div class="idea-body"><h3>${esc(d.title)}</h3><p>${esc(d.text)}</p>
+        <div class="idea-actions">${d.actions.map((a) => a.go
+          ? `<button class="chip" type="button" data-go="${a.go}">${esc(a.label)}</button>`
+          : `<a class="chip" href="${esc(a.href)}"${a.ext ? ' target="_blank" rel="noopener"' : ""}>${esc(a.label)}</a>`).join("")}</div></div>
+      </article>`).join("");
+    const goTo = (id) => {
+      const el = document.getElementById(id);
+      if (lenis) lenis.scrollTo(el, { offset: -80, duration: 1.4 }); else el.scrollIntoView({ behavior: "smooth" });
+    };
+    document.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-go]"); if (!b) return;
+      const where = b.dataset.go;
+      if (where === "surf") { goTo("surf"); setTimeout(() => surf.start(), 900); }
+      else if (where === "companion") { goTo("companion"); companion.begin(); }
+      else goTo(where);
+    });
+  })();
+
+  /* ---------- talk it through: a small, honest, scripted check-in ---------- */
+  const companion = (() => {
+    const logEl = document.getElementById("compLog");
+    const repliesEl = document.getElementById("compReplies");
+    const tree = {
+      start: { say: "Hi. I'm a small script, not a person — but I'm here, and I'm not going anywhere. How are you feeling right now?",
+        options: [["Anxious or restless", "anxious"], ["Having an urge", "urge"], ["Sad or lonely", "sad"], ["Numb or empty", "numb"], ["I just need a distraction", "distract"]] },
+      anxious: { say: "That restless feeling is so hard to sit in. Let's give your body somewhere to put it.",
+        options: [["Breathe with the sunrise", "#breathe"], ["Pop some bubbles", "#play"], ["Something else", "start"]] },
+      urge: { say: "Thank you for noticing it instead of just acting on it. That takes real strength. Want to ride it out together?",
+        options: [["Ride the wave with me", "@surf"], ["Distract me first", "#ideas"], ["I need a real person", "#help"]] },
+      sad: { say: "I'm really sorry it feels so heavy. You deserve company in this — not to carry it alone.",
+        options: [["Message a friend", "sms"], ["Find a helpline", "#help"], ["Write it out", "#ideas"]] },
+      numb: { say: "Numb can feel safer than feeling everything at once. Let's come back gently, one sense at a time.",
+        options: [["5-4-3-2-1 on the water", "#pond"], ["Breathe with the sunrise", "#breathe"], ["Something else", "start"]] },
+      distract: { say: "Good call. Pick whatever sounds least effort right now:",
+        options: [["Play for three minutes", "#play"], ["Dance it out", "dance"], ["See all the ideas", "#ideas"]] },
+      after: { say: "Taking you there now. Come back any time — I'll be here.", options: [["Start over", "start"]] },
+    };
+    let busy = false, begun = false;
+    const add = (who, text) => {
+      const p = document.createElement("p");
+      p.className = `msg ${who}`; p.textContent = text;
+      logEl.appendChild(p);
+      logEl.scrollTop = logEl.scrollHeight;
+      return p;
+    };
+    const say = (key) => {
+      const node = tree[key];
+      busy = true; repliesEl.innerHTML = "";
+      const typing = add("bot typing", "…");
+      setTimeout(() => {
+        typing.remove(); add("bot", node.say); busy = false;
+        repliesEl.innerHTML = node.options.map(([label, go]) => `<button class="chip" type="button" data-to="${go}">${esc(label)}</button>`).join("");
+      }, 650);
+    };
+    repliesEl.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-to]"); if (!b || busy) return;
+      const to = b.dataset.to;
+      add("me", b.textContent);
+      if (tree[to]) return say(to);
+      say("after");
+      setTimeout(() => {
+        const target = { "#ideas": "ideas", "#help": "help", "#breathe": "breathe", "#play": "play", "#pond": "pond", "@surf": "surf" }[to];
+        if (to === "sms") location.href = "sms:?&body=" + encodeURIComponent("Hey, can you talk for a bit? I'm having a hard moment.");
+        else if (to === "dance") window.open("https://www.youtube.com/watch?v=gkstiMe2Ybs", "_blank", "noopener");
+        else if (target) {
+          const el = document.getElementById(target);
+          if (lenis) lenis.scrollTo(el, { offset: -80, duration: 1.4 }); else el.scrollIntoView({ behavior: "smooth" });
+          if (to === "@surf") setTimeout(() => surf.start(), 900);
+        }
+      }, 900);
+    });
+    const begin = () => { if (!begun) { begun = true; say("start"); } };
+    new IntersectionObserver(([en]) => { if (en.isIntersecting) begin(); }, { threshold: 0.4 }).observe(document.getElementById("companion"));
+    return { begin };
+  })();
+
+  /* ---------- play it out: an original lantern game, and bubble wrap for restless hands ---------- */
+  (() => {
+    const box = document.getElementById("lanternGame");
+    const cv = document.getElementById("lanternCanvas");
+    const g = cv.getContext("2d");
+    const scoreEl = document.getElementById("lgScore");
+    const timeEl = document.getElementById("lgTime");
+    const startEl = document.getElementById("lgStart");
+    const ROUND = 180;
+    let lanterns = [], sparks = [], score = 0, t0 = 0, last = 0, playing = false, nextSpawn = 0, visible = false;
+    const size = () => { const d = Math.min(2, devicePixelRatio || 1); cv.width = box.clientWidth * d; cv.height = box.clientHeight * d; g.setTransform(d, 0, 0, d, 0, 0); };
+    const W = () => box.clientWidth, H = () => box.clientHeight;
+    const spawn = (k) => {
+      const s = 26 + Math.random() * 18;
+      lanterns.push({ x: s + Math.random() * (W() - s * 2), y: H() + s, s, vy: (46 + Math.random() * 34) * (1 + k * 1.4), sway: Math.random() * 6, lit: 0 });
+    };
+    const drawLantern = (l, t) => {
+      const x = l.x + Math.sin(t * 1.3 + l.sway) * 8, y = l.y, s = l.s;
+      if (l.lit) {
+        const glow = g.createRadialGradient(x, y, 0, x, y, s * 2.6);
+        glow.addColorStop(0, `rgba(255, 190, 90, ${0.55 * (1 - l.fade)})`); glow.addColorStop(1, "rgba(255, 150, 60, 0)");
+        g.fillStyle = glow; g.beginPath(); g.arc(x, y, s * 2.6, 0, Math.PI * 2); g.fill();
+      }
+      const body = g.createLinearGradient(x - s / 2, y, x + s / 2, y);
+      const a = l.lit ? 1 - l.fade : 0.85;
+      body.addColorStop(0, l.lit ? `rgba(255, 140, 50, ${a})` : `rgba(120, 70, 50, ${a})`);
+      body.addColorStop(0.5, l.lit ? `rgba(255, 225, 150, ${a})` : `rgba(170, 110, 80, ${a})`);
+      body.addColorStop(1, l.lit ? `rgba(255, 140, 50, ${a})` : `rgba(120, 70, 50, ${a})`);
+      g.fillStyle = body;
+      g.beginPath();
+      g.moveTo(x - s * 0.36, y - s * 0.6); g.lineTo(x + s * 0.36, y - s * 0.6);
+      g.quadraticCurveTo(x + s * 0.62, y, x + s * 0.4, y + s * 0.55);
+      g.lineTo(x - s * 0.4, y + s * 0.55);
+      g.quadraticCurveTo(x - s * 0.62, y, x - s * 0.36, y - s * 0.6);
+      g.fill();
+      g.fillStyle = `rgba(60, 35, 25, ${a})`; g.fillRect(x - s * 0.3, y + s * 0.55, s * 0.6, s * 0.08);
+    };
+    const frame = (now) => {
+      if (!playing) return;
+      const t = (now - t0) / 1000, dt = Math.min(0.05, (now - last) / 1000); last = now;
+      const left = Math.max(0, ROUND - t), k = t / ROUND;
+      timeEl.textContent = `${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, "0")}`;
+      if (t >= nextSpawn) { spawn(k); nextSpawn = t + Math.max(0.35, 1.4 - k * 1.1) * (0.6 + Math.random() * 0.8); }
+      g.clearRect(0, 0, W(), H());
+      lanterns.forEach((l) => {
+        l.y -= l.vy * dt * (l.lit ? 2.4 : 1);
+        if (l.lit) l.fade = Math.min(1, (l.fade || 0) + dt * 0.5);
+        drawLantern(l, t);
+      });
+      lanterns = lanterns.filter((l) => l.y > -l.s * 2 && !(l.lit && l.fade >= 1));
+      sparks.forEach((p) => { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 40 * dt; p.life -= dt; g.fillStyle = `rgba(255, 220, 140, ${Math.max(0, p.life)})`; g.fillRect(p.x, p.y, 2, 2); });
+      sparks = sparks.filter((p) => p.life > 0);
+      if (left <= 0) return finish();
+      if (visible && !document.hidden) requestAnimationFrame(frame); else pause();
+    };
+    let pausedAt = 0;
+    const pause = () => { pausedAt = performance.now(); };
+    const resume = () => { if (playing && pausedAt) { const gap = performance.now() - pausedAt; t0 += gap; last = performance.now(); pausedAt = 0; requestAnimationFrame(frame); } };
+    const finish = () => {
+      playing = false;
+      startEl.innerHTML = `<h3>You freed ${score} lantern${score === 1 ? "" : "s"}</h3><p>Three minutes, done. How's the urge now — a little quieter?</p>
+        <div class="lg-again"><button class="btn btn-solid" id="lgPlay">Play again</button><button class="btn btn-line" type="button" data-go="surf">Ride the wave</button></div>`;
+      startEl.hidden = false;
+      document.getElementById("lgPlay").addEventListener("click", play);
+    };
+    function play() {
+      size(); lanterns = []; sparks = []; score = 0; scoreEl.textContent = "0 lanterns freed";
+      startEl.hidden = true; playing = true; pausedAt = 0; t0 = last = performance.now(); nextSpawn = 0;
+      requestAnimationFrame(frame);
+    }
+    document.getElementById("lgPlay").addEventListener("click", play);
+    cv.addEventListener("pointerdown", (e) => {
+      if (!playing) return;
+      const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top, t = (performance.now() - t0) / 1000;
+      for (const l of lanterns) {
+        const x = l.x + Math.sin(t * 1.3 + l.sway) * 8;
+        if (!l.lit && Math.hypot(px - x, py - l.y) < l.s * 0.9) {
+          l.lit = 1; l.fade = 0; score++;
+          scoreEl.textContent = `${score} lantern${score === 1 ? "" : "s"} freed`;
+          for (let i = 0; i < 14; i++) sparks.push({ x, y: l.y, vx: (Math.random() - .5) * 140, vy: (Math.random() - .8) * 120, life: .8 + Math.random() * .5 });
+          break;
+        }
+      }
+    });
+    new IntersectionObserver(([en]) => { visible = en.isIntersecting; if (visible) { size(); resume(); } }).observe(box);
+    window.addEventListener("resize", size);
+
+    const grid = document.getElementById("bubbleGrid");
+    const fill = () => {
+      grid.innerHTML = Array.from({ length: 48 }, (_, i) => `<button class="bubble" type="button" aria-label="Bubble" style="--i:${i}"></button>`).join("");
+    };
+    grid.addEventListener("pointerdown", (e) => {
+      const b = e.target.closest(".bubble");
+      if (b && !b.classList.contains("popped")) { b.classList.add("popped"); b.setAttribute("aria-pressed", "true"); }
+    });
+    grid.addEventListener("keydown", (e) => {
+      const b = e.target.closest(".bubble");
+      if (b && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); b.classList.add("popped"); }
+    });
+    document.getElementById("bubbleReset").addEventListener("click", fill);
+    fill();
+  })();
+
   /* ---------- resources: community, bookshelf, podcasts, research ---------- */
   (() => {
     const R = window.BLOOM_RESOURCES;
@@ -485,8 +963,8 @@
     document.getElementById("commList").innerHTML = R.communities.map((c) =>
       `<a class="comm reveal" href="${esc(c.url)}" target="_blank" rel="noopener"><h3>${esc(c.name)}</h3><p>${esc(c.desc)}</p><span class="go">Open on Reddit ↗</span></a>`).join("");
     document.getElementById("shelf").innerHTML = R.books.map((b) =>
-      `<a class="book" href="https://openlibrary.org/isbn/${b.isbn}" target="_blank" rel="noopener">
-        <span class="cover"><img src="https://covers.openlibrary.org/b/isbn/${b.isbn}-L.jpg" alt="Cover of ${esc(b.title)}" loading="lazy"></span>
+      `<a class="book" href="${esc(b.url || `https://openlibrary.org/isbn/${b.isbn}`)}" target="_blank" rel="noopener">
+        <span class="cover"><img src="${esc(b.cover || `https://covers.openlibrary.org/b/isbn/${b.isbn}-L.jpg`)}" alt="Cover of ${esc(b.title)}" loading="lazy"></span>
         <h3>${esc(b.title)}</h3><p class="by">${esc(b.author)}</p><p>${esc(b.note)}</p></a>`).join("");
     document.getElementById("podList").innerHTML = R.podcasts.map((p) =>
       `<a class="pod reveal" href="${esc(p.url)}" target="_blank" rel="noopener">
