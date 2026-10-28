@@ -1,4 +1,4 @@
-// Shared helpline data for every version of Bloom Within.
+// Helpline data for Bloom Within.
 // Re-check these numbers every few months — services change.
 window.BLOOM_HELPLINES = {
   us: { label: "USA", lines: [
@@ -29,7 +29,7 @@ window.BLOOM_HELPLINES = {
   ] },
 };
 
-// Quick exit (button + Esc twice) and calm-mode preference, shared by all versions.
+// Quick exit (button + Esc twice) and calm-mode preference.
 window.BLOOM_COMMON = {
   quickExit(link) {
     const go = () => window.location.replace(link.href);
