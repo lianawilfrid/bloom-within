@@ -11,6 +11,8 @@ Plain HTML, CSS and JavaScript — no build step. Open `index.html` or host it w
 - `shared/helplines.js` — helpline numbers, quick exit and calm mode
 - `shared/resources.js` — communities, books, podcasts, research and the nourishment data
 - `shared/sound.js` — every sound effect and the calm music, generated live with the Web Audio API (no audio files)
+- `shared/config.js` — **your settings**: the email sign-up form address, your PayPal.me name and an optional UPI ID. Empty values show "opening soon".
+- `images/logos/` — twelve-step logos (from each fellowship's site) and podcast covers (from Spotify)
 - `videos/` — ocean footage for "Ride the wave", from Mixkit (free licence, no attribution required)
 
 The page waits behind a loading screen until every photo is downloaded and decoded

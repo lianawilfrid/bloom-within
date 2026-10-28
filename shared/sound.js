@@ -89,11 +89,71 @@ window.BLOOM_SOUND = (() => {
       tone({ f, to: f * rand(2.4, 3.2), d: 0.09 + strength * 0.05, g: 0.28 * Math.min(1.4, strength), wet: 0.45 });
       hiss({ dur: 0.04, f: 1200, q: 0.7, g: 0.05 * strength, wet: 0.2 });
     },
-    // bubble wrap: a dry snap with a little thump behind it
-    pop() {
+    // bubble wrap: a tight click, a puff of escaping air and a soft thump, tuned by bubble size (0 small → 1 big)
+    pop(size = Math.random()) {
       if (!ready()) return;
-      hiss({ dur: 0.022, f: rand(1600, 3200), q: 0.9, g: 0.9, wet: 0.05 });
-      tone({ f: rand(150, 220), to: 60, d: 0.05, g: 0.35, wet: 0 });
+      const kind = Math.random();
+      const bright = 1 - size;
+      hiss({ dur: 0.004, type: "highpass", f: 3500, g: 0.9, wet: 0.02 });                                  // the skin giving way
+      hiss({ dur: 0.02 + size * 0.05, f: 900 + bright * 2600 + rand(-200, 200), q: 1.1, g: 0.75, wet: 0.12 }); // air rushing out
+      tone({ f: 90 + bright * 140 + rand(-15, 15), to: 45, d: 0.05 + size * 0.05, g: 0.28 + size * 0.2, wet: 0 }); // the thump in your fingers
+      if (kind < 0.18) tone({ f: rand(1400, 2200), to: rand(2600, 3400), at: 0.004, d: 0.05, g: 0.05, wet: 0.1 }); // a squeaky one
+      else if (kind < 0.32) {                                                                                  // a double pop
+        hiss({ at: rand(0.035, 0.07), dur: 0.018, f: 1400 + bright * 2000, q: 1.2, g: 0.45, wet: 0.1 });
+      }
+      hiss({ at: 0.01, dur: 0.09, type: "lowpass", f: 700, g: 0.08, wet: 0.25 });                              // a little room tail
+    },
+    // a mechanical keyboard: a deep thock going down, a lighter clack coming up
+    key(up = false) {
+      if (!ready()) return;
+      if (up) { hiss({ dur: 0.008, f: rand(3000, 4200), q: 2, g: 0.25, wet: 0.03 }); return; }
+      hiss({ dur: 0.012, f: rand(1800, 2600), q: 1.6, g: 0.6, wet: 0.04 });
+      tone({ f: rand(150, 190), to: 95, d: 0.06, g: 0.32, wet: 0 });
+    },
+    // slime: wet squelches with little bubbles bursting
+    slime(amount = 1) {
+      if (!ready()) return;
+      hiss({ dur: 0.12 + amount * 0.1, type: "lowpass", f: 300, fTo: 1300, q: 3, g: 0.35 * amount, a: 0.02, wet: 0.05 });
+      for (let i = 0; i < 2 + amount * 3; i++) { const f = rand(220, 520); tone({ f, to: f * rand(1.6, 2.4), at: Math.random() * 0.15, d: 0.045, g: 0.08, wet: 0.08 }); }
+    },
+    // a rain stick tipping over: thousands of seeds tumbling, thinning out as they settle
+    rainstick() {
+      if (!ready()) return;
+      const len = 2.6;
+      hiss({ dur: len, type: "bandpass", f: 5200, q: 0.8, g: 0.06, a: 0.3, wet: 0.3 });
+      for (let i = 0; i < 160; i++) { const at = Math.pow(Math.random(), 1.6) * len; hiss({ at, dur: 0.006, f: rand(2500, 8000), q: 4, g: rand(0.04, 0.16) * (1 - at / len * 0.7), wet: 0.25 }); }
+    },
+    // wind chimes: metal tubes with long, shimmering rings
+    windchime(f) {
+      if (!ready()) return;
+      [[1, 0.14, 3.2], [2.76, 0.05, 1.8], [5.4, 0.025, 0.9]].forEach(([m, g, d]) => { tone({ f: f * m, d, g, wet: 0.7 }); tone({ f: f * m * 1.003, d, g: g * 0.6, wet: 0.7 }); });
+    },
+    // opening a fizzy can: a pssst, then bubbles rising
+    soda() {
+      if (!ready()) return;
+      hiss({ dur: 0.012, type: "highpass", f: 2000, g: 0.7, wet: 0.02 });
+      hiss({ at: 0.01, dur: 0.45, type: "highpass", f: 3000, fTo: 5000, g: 0.4, a: 0.004, wet: 0.08 });
+      for (let i = 0; i < 90; i++) hiss({ at: 0.3 + Math.random() * 3, dur: 0.004, f: rand(3000, 9000), q: 5, g: rand(0.03, 0.1), wet: 0.15 });
+    },
+    // striking a match: a rough scrape, the flare, then quiet crackles
+    match() {
+      if (!ready()) return;
+      hiss({ dur: 0.16, type: "bandpass", f: 1600, fTo: 3200, q: 1.5, g: 0.5, a: 0.01, wet: 0.05 });
+      for (let i = 0; i < 14; i++) hiss({ at: Math.random() * 0.16, dur: 0.006, f: rand(2000, 6000), q: 3, g: rand(0.1, 0.3), wet: 0 });
+      hiss({ at: 0.15, dur: 0.6, type: "lowpass", f: 500, fTo: 1400, g: 0.45, a: 0.03, wet: 0.1 });
+      for (let i = 0; i < 10; i++) hiss({ at: 0.5 + Math.random() * 1.6, dur: 0.005, f: rand(1500, 4000), q: 4, g: rand(0.05, 0.15), wet: 0.05 });
+    },
+    // a pizza in a hot oven
+    sizzle() {
+      if (!ready()) return;
+      hiss({ dur: 2.2, type: "highpass", f: 4000, g: 0.12, a: 0.3, wet: 0.1 });
+      for (let i = 0; i < 70; i++) hiss({ at: Math.random() * 2.4, dur: 0.005, f: rand(3000, 8000), q: 4, g: rand(0.04, 0.14), wet: 0.05 });
+    },
+    // a soft bump in the driving game
+    bump() {
+      if (!ready()) return;
+      tone({ f: 120, to: 60, d: 0.12, g: 0.35, wet: 0.05 });
+      hiss({ dur: 0.05, type: "lowpass", f: 900, g: 0.3, wet: 0 });
     },
     // a lantern catching light: a small bell
     chime() {

@@ -291,48 +291,23 @@
     soundBtn.setAttribute("aria-label", silent ? "Sound is off. Open sound settings" : "Sound settings");
   });
 
-  /* ---------- breathing sunrise: the light, a ring and drifting motes show when to breathe ---------- */
+  /* ---------- breathing sunrise ---------- */
   const sunWin = document.getElementById("sunWindow");
-  const breath = document.getElementById("breath");
   const cue = document.getElementById("sunCue");
-  const ring = document.getElementById("ringFill");
-  const guide = [...document.querySelectorAll("#breathGuide .phase")];
-  const countEl = document.getElementById("breathCount");
-  document.getElementById("motes").innerHTML = Array.from({ length: 14 }, (_, i) =>
-    `<i style="--a:${(i * 360) / 14}deg;--d:${(i % 3) * 0.45}s"></i>`).join("");
-  const steps = [["Breathe in", "in", 4000], ["Hold", "hold", 4000], ["Breathe out", "out", 6000]];
-  let breathing = false, timer, ticker;
+  const steps = [["Breathe in…", "in", 4000], ["Hold…", "in", 4000], ["Breathe out…", "out", 6000]];
+  let breathing = false, timer;
   const step = (i) => {
     const [label, state, ms] = steps[i];
     cue.textContent = label;
-    breath.dataset.phase = state;
-    sunWin.classList.toggle("in", state !== "out");
+    sunWin.classList.toggle("in", state === "in");
     sunWin.classList.toggle("out", state === "out");
-    guide.forEach((g, k) => g.classList.toggle("on", k === i));
-    // the ring fills as you breathe in, stays full while you hold, empties as you breathe out
-    ring.style.transitionDuration = state === "hold" ? "0s" : `${ms}ms`;
-    ring.style.strokeDashoffset = state === "out" ? "100" : "0";
-    // one dot for every second of this breath
-    const secs = ms / 1000;
-    countEl.innerHTML = Array.from({ length: secs }, () => "<i></i>").join("");
-    const dots = [...countEl.children];
-    let n = 0;
-    clearInterval(ticker);
-    dots[0].classList.add("on");
-    ticker = setInterval(() => { n++; if (dots[n]) dots[n].classList.add("on"); }, 1000);
     timer = setTimeout(() => step((i + 1) % steps.length), ms);
   };
   sunWin.addEventListener("click", () => {
     breathing = !breathing;
-    clearTimeout(timer); clearInterval(ticker);
-    breath.classList.toggle("going", breathing);
+    clearTimeout(timer);
     if (breathing) step(0);
-    else {
-      sunWin.classList.remove("in", "out"); delete breath.dataset.phase;
-      guide.forEach((g) => g.classList.remove("on")); countEl.innerHTML = "";
-      ring.style.transitionDuration = "1s"; ring.style.strokeDashoffset = "100";
-      cue.textContent = "Tap the sunrise to begin";
-    }
+    else { sunWin.classList.remove("in", "out"); cue.textContent = "Tap the sunrise to begin"; }
   });
 
   /* ---------- 5-4-3-2-1 on real water: a full-resolution photo, rippled on the GPU ---------- */
@@ -744,6 +719,7 @@
       const peak = Math.max(...points.map((p) => p.v)), now = points[points.length - 1].v;
       if (points.length > 1 && now < peak) msgEl.textContent = `It's down from ${peak} to ${now}. The wave is already falling.`;
       else if (points.length > 1 && now >= peak) msgEl.textContent = "This might be the crest. Breathe into it — crests don't last.";
+      drawChart();
     };
     level.addEventListener("input", () => { levelOut.textContent = level.value; });
     let lt;
@@ -753,12 +729,14 @@
       t0 = Date.now(); points = []; said = -1;
       log();
       startBtn.hidden = true; logBtn.hidden = false; doneBtn.hidden = false;
+      scNote.textContent = "Move the slider whenever it changes";
       stage.classList.add("riding");
       timer = setInterval(() => {
         const s = elapsed();
         timeEl.textContent = fmt(s);
         const m = milestones.filter(([at]) => s >= at).length - 1;
         if (m > said) { said = m; msgEl.textContent = milestones[m][1]; }
+        drawChart();
         if (Math.floor(s) > 0 && Math.floor(s) % 120 === 0) { msgEl.textContent = "Check in: how strong is it now? Move the slider."; level.classList.remove("nudge"); void level.offsetWidth; level.classList.add("nudge"); }
       }, 1000);
     };
@@ -772,9 +750,49 @@
       showCount();
       t0 = 0; startBtn.hidden = false; startBtn.textContent = "Ride another wave"; logBtn.hidden = true; doneBtn.hidden = true;
       stage.classList.remove("riding");
+      scNote.textContent = `Started at ${first}, peaked at ${peak}, ended at ${last}`;
+      drawChart();
     });
 
     // the sea: real footage that goes from a calm paddle to breaking waves as the urge rises, and settles again as it falls
+    // a small chart of your own wave, kept under the footage so the sea stays clear
+    const chart = document.getElementById("surfChartCanvas"), cctx = chart.getContext("2d"), scNote = document.getElementById("scNote");
+    function drawChart() {
+      const d = Math.min(2, devicePixelRatio || 1), w = chart.clientWidth, h = chart.clientHeight;
+      if (!w) return;
+      if (chart.width !== Math.round(w * d) || chart.height !== Math.round(h * d)) { chart.width = Math.round(w * d); chart.height = Math.round(h * d); }
+      cctx.setTransform(d, 0, 0, d, 0, 0); cctx.clearRect(0, 0, w, h);
+      const css = getComputedStyle(root), ink = css.getPropertyValue("--ink").trim(), line = css.getPropertyValue("--line").trim(), sun = css.getPropertyValue("--sun").trim();
+      const L = 26, R = 12, T = 10, B = 22;
+      const lastT = points.length ? points[points.length - 1].t : 0;
+      const span = Math.max(60, (Math.max(elapsed(), lastT) + 10) * 1.2);
+      const X = (t) => L + (t / span) * (w - L - R), Y = (v) => T + (1 - v / 10) * (h - T - B);
+      cctx.font = "11px Figtree, system-ui, sans-serif"; cctx.lineWidth = 1;
+      [0, 5, 10].forEach((v) => {
+        cctx.strokeStyle = line; cctx.beginPath(); cctx.moveTo(L, Y(v)); cctx.lineTo(w - R, Y(v)); cctx.stroke();
+        cctx.fillStyle = ink; cctx.globalAlpha = 0.65; cctx.fillText(String(v), 4, Y(v) + 4); cctx.globalAlpha = 1;
+      });
+      const every = span > 1500 ? 600 : span > 400 ? 120 : 30;
+      cctx.fillStyle = ink; cctx.globalAlpha = 0.65;
+      for (let t = every; t < span; t += every) cctx.fillText(t < 60 ? `${t}s` : `${Math.round(t / 60)}m`, X(t) - 8, h - 6);
+      cctx.globalAlpha = 1;
+      if (!points.length) return;
+      const pts = points.map((p) => [X(p.t), Y(p.v)]);
+      if (t0) pts.push([X(elapsed()), Y(points[points.length - 1].v)]);
+      const path = () => {
+        cctx.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length; i++) { const [x0, y0] = pts[i - 1], [x1, y1] = pts[i], mx = (x0 + x1) / 2; cctx.bezierCurveTo(mx, y0, mx, y1, x1, y1); }
+      };
+      const g = cctx.createLinearGradient(0, T, 0, h - B);
+      g.addColorStop(0, sun); g.addColorStop(1, "transparent");
+      cctx.beginPath(); path(); cctx.lineTo(pts[pts.length - 1][0], h - B); cctx.lineTo(pts[0][0], h - B); cctx.closePath();
+      cctx.globalAlpha = 0.35; cctx.fillStyle = g; cctx.fill(); cctx.globalAlpha = 1;
+      cctx.beginPath(); path(); cctx.strokeStyle = sun; cctx.lineWidth = 2.4; cctx.stroke();
+      cctx.fillStyle = sun;
+      points.forEach((p) => { cctx.beginPath(); cctx.arc(X(p.t), Y(p.v), 3.2, 0, Math.PI * 2); cctx.fill(); });
+    }
+    window.addEventListener("resize", () => drawChart());
+    new IntersectionObserver(([en]) => { if (en.isIntersecting) drawChart(); }).observe(chart);
     const vids = [...stage.querySelectorAll("video.sea")];
     const ease = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
     const setSea = () => {
@@ -1017,15 +1035,15 @@
 
     const grid = document.getElementById("bubbleGrid");
     const fill = () => {
-      grid.innerHTML = Array.from({ length: 48 }, (_, i) => `<button class="bubble" type="button" aria-label="Bubble" style="--i:${i}"></button>`).join("");
+      grid.innerHTML = Array.from({ length: 48 }, (_, i) => { const sz = Math.random(); return `<button class="bubble" type="button" aria-label="Bubble" data-sz="${sz.toFixed(2)}" style="--i:${i};--sz:${(0.74 + sz * 0.26).toFixed(2)}"></button>`; }).join("");
     };
     grid.addEventListener("pointerdown", (e) => {
       const b = e.target.closest(".bubble");
-      if (b && !b.classList.contains("popped")) { b.classList.add("popped"); b.setAttribute("aria-pressed", "true"); S.pop(); }
+      if (b && !b.classList.contains("popped")) { b.classList.add("popped"); b.setAttribute("aria-pressed", "true"); S.pop(Number(b.dataset.sz)); }
     });
     grid.addEventListener("keydown", (e) => {
       const b = e.target.closest(".bubble");
-      if (b && (e.key === "Enter" || e.key === " ") && !b.classList.contains("popped")) { e.preventDefault(); b.classList.add("popped"); S.pop(); }
+      if (b && (e.key === "Enter" || e.key === " ") && !b.classList.contains("popped")) { e.preventDefault(); b.classList.add("popped"); S.pop(Number(b.dataset.sz)); }
     });
     document.getElementById("bubbleReset").addEventListener("click", fill);
     fill();
@@ -1039,12 +1057,20 @@
     const toys = [
       ["chalk", "Snap the chalk", "Tap to break it. A new stick rolls in.", '<div class="chalk"><i class="half l"></i><i class="half r"></i></div>'],
       ["sand", "Slice the sand", "Tap or swipe to cut a slice of kinetic sand.", '<div class="sand"><div class="sand-block"></div></div>'],
-      ["paper", "Scrunch the paper", "Press and drag to crumple it. Let go to smooth it out.", '<div class="paper"><div class="sheet"></div></div>'],
+      ["paper", "Scrunch the paper", "Press and drag to crumple it. Let go to smooth it out.", '<div class="paper-toy"><div class="sheet"></div></div>'],
       ["wood", "Tap the wood", "Five warm wooden notes. Any order sounds kind.",
         '<div class="keys">' + notes.map((f, i) => `<button type="button" class="key" data-f="${f}" style="--i:${i}" aria-label="Wooden note ${i + 1}"></button>`).join("") + "</div>"],
       ["bowl", "Ring the bowl", "One tap. Listen until the sound is completely gone.", '<div class="bowl-wrap"><div class="bowl"></div></div>'],
       ["ice", "Clink the ice", "Tap the glass and listen to the ice settle.", '<div class="glass"><i></i><i></i><i></i></div>'],
       ["rain", "Rain on the window", "Tap to start or stop the rain.", `<div class="window">${drops}</div>`],
+      ["keys", "Clicky keyboard", "Type anything. Thock, thock, clack.",
+        '<div class="kb">' + ["Q", "W", "E", "R", "A", "S", "D", "F", "Z", "X", "C", "V"].map((k) => `<button type="button" class="kc">${k}</button>`).join("") + "</div>"],
+      ["slime", "Squish the slime", "Press and drag. It's very squishy.", '<div class="slime"><i></i></div>'],
+      ["stick", "Tip the rain stick", "Tap to turn it over and listen to the seeds fall.", '<div class="stick"><i></i></div>'],
+      ["chimes", "Wind chimes", "Brush across them, or tap one.",
+        '<div class="chimes">' + [784, 880, 1046.5, 1174.7, 1318.5, 1568].map((f, i) => `<i data-f="${f}" style="--i:${i}"></i>`).join("") + "</div>"],
+      ["soda", "Open a fizzy drink", "Tap the can. Pssst… then listen to it fizz.", '<div class="can"><i class="tab"></i><span class="fizz"></span></div>'],
+      ["match", "Strike a match", "Tap to strike. Watch it glow, then fade.", '<div class="match"><i class="flame"></i></div>'],
     ];
     box.innerHTML = toys.map(([k, title, hint, art]) => `<article class="toy toy-${k} reveal" data-toy="${k}">
         <div class="toy-stage"${k === "wood" ? "" : ' role="button" tabindex="0"'} aria-label="${esc(title)}">${art}</div>
@@ -1167,6 +1193,380 @@
     rainStage.setAttribute("aria-pressed", "false");
     press(rainStage, () => setRain(!raining));
     new IntersectionObserver(([en]) => { if (!en.isIntersecting && raining) setRain(false); }).observe(rainStage);
+
+    // clicky keyboard: each key goes down with a thock and comes up with a clack
+    const kb = card("keys");
+    kb.removeAttribute("role"); kb.removeAttribute("tabindex");
+    kb.addEventListener("pointerdown", (e) => { const k = e.target.closest(".kc"); if (!k) return; k.classList.add("down"); S.key(); });
+    const keyUp = (e) => { const k = e.target.closest(".kc"); if (!k || !k.classList.contains("down")) return; k.classList.remove("down"); S.key(true); };
+    kb.addEventListener("pointerup", keyUp); kb.addEventListener("pointerleave", () => kb.querySelectorAll(".down").forEach((k) => k.classList.remove("down")));
+    kb.addEventListener("keydown", (e) => { const k = e.target.closest(".kc"); if (k && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); S.key(); k.classList.add("down"); setTimeout(() => { k.classList.remove("down"); S.key(true); }, 90); } });
+
+    // slime: it follows your finger, stretches, and squelches
+    const slimeStage = card("slime"), blob = slimeStage.querySelector(".slime i");
+    let squishing = false, lastSquish = 0, sx0 = 0, sy0 = 0;
+    const squish = (e) => {
+      const r = slimeStage.getBoundingClientRect();
+      const dx = (e.clientX - r.left) / r.width - 0.5, dy = (e.clientY - r.top) / r.height - 0.5;
+      blob.style.transform = `translate(${dx * 40}px, ${dy * 30}px) scale(${1 + Math.abs(dx) * 0.6}, ${1 - Math.abs(dx) * 0.35 + Math.abs(dy) * 0.3})`;
+      blob.style.setProperty("--px", `${50 + dx * 60}%`); blob.style.setProperty("--py", `${50 + dy * 60}%`);
+      const now = performance.now(), moved = Math.hypot(e.clientX - sx0, e.clientY - sy0);
+      if (now - lastSquish > 110 && moved > 6) { lastSquish = now; sx0 = e.clientX; sy0 = e.clientY; S.slime(Math.min(1, moved / 40)); }
+    };
+    slimeStage.addEventListener("pointerdown", (e) => { squishing = true; slimeStage.setPointerCapture(e.pointerId); blob.classList.add("pressed"); sx0 = e.clientX; sy0 = e.clientY; S.slime(0.8); squish(e); });
+    slimeStage.addEventListener("pointermove", (e) => { if (squishing) squish(e); });
+    const unsquish = () => { if (!squishing) return; squishing = false; blob.classList.remove("pressed"); blob.style.transform = ""; S.slime(0.4); };
+    slimeStage.addEventListener("pointerup", unsquish); slimeStage.addEventListener("pointercancel", unsquish);
+    slimeStage.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); blob.classList.add("pressed"); S.slime(1); setTimeout(() => blob.classList.remove("pressed"), 300); } });
+
+    // rain stick
+    const stickStage = card("stick"), stick = stickStage.querySelector(".stick");
+    let tipped = false, tipping = false;
+    press(stickStage, () => {
+      if (tipping) return;
+      tipping = true; tipped = !tipped;
+      stick.classList.toggle("tipped", tipped);
+      S.rainstick();
+      setTimeout(() => { tipping = false; }, 1200);
+    });
+
+    // wind chimes: brush across them with a finger or the mouse
+    const chimes = card("chimes");
+    let lastChime = null;
+    const ring = (c) => {
+      if (!c || c === lastChime) return;
+      lastChime = c; setTimeout(() => { if (lastChime === c) lastChime = null; }, 250);
+      S.windchime(Number(c.dataset.f));
+      c.classList.remove("swing"); void c.offsetWidth; c.classList.add("swing");
+    };
+    chimes.addEventListener("pointermove", (e) => { if (e.pointerType === "mouse" || e.buttons) ring(document.elementFromPoint(e.clientX, e.clientY)?.closest(".chimes i")); });
+    chimes.addEventListener("pointerdown", (e) => { chimes.releasePointerCapture?.(e.pointerId); ring(e.target.closest(".chimes i")); });
+    chimes.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      [...chimes.querySelectorAll("i")].forEach((c, i) => setTimeout(() => { lastChime = null; ring(c); }, i * 140));
+    });
+
+    // fizzy drink
+    const sodaStage = card("soda"), can = sodaStage.querySelector(".can");
+    let opened = false;
+    press(sodaStage, () => {
+      if (opened) { opened = false; can.classList.remove("open"); return; } // a fresh can
+      opened = true; S.soda();
+      can.classList.add("open");
+    });
+
+    // strike a match
+    const matchStage = card("match"), m = matchStage.querySelector(".match");
+    let burning = false;
+    press(matchStage, () => {
+      if (burning) return;
+      burning = true; S.match();
+      m.classList.add("lit");
+      setTimeout(() => { m.classList.remove("lit"); m.classList.add("out"); }, 4200);
+      setTimeout(() => { m.classList.remove("out"); burning = false; }, 5600);
+    });
+
+  })();
+
+  /* ---------- night drive: a gentle driving game — collect stars, steer round cones, nothing ever crashes ---------- */
+  (() => {
+    const box = document.getElementById("racer"), cv = document.getElementById("racerCanvas"), g = cv.getContext("2d");
+    const scoreEl = document.getElementById("rcScore"), timeEl = document.getElementById("rcTime"), startEl = document.getElementById("rcStart");
+    const ROUND = 120, LANES = 3;
+    let playing = false, visible = false, t0 = 0, last = 0, speed = 1, lane = 1, carX = 0, items = [], stars = 0, road = 0, nextItem = 0, slow = 0, wobble = 0, pausedAt = 0;
+    const W = () => box.clientWidth, H = () => box.clientHeight;
+    const size = () => { const d = Math.min(2, devicePixelRatio || 1); cv.width = W() * d; cv.height = H() * d; g.setTransform(d, 0, 0, d, 0, 0); };
+    const roadL = () => W() * 0.12, roadW = () => W() * 0.76, laneX = (i) => roadL() + roadW() * (i + 0.5) / LANES;
+    startEl.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-speed]"); if (!b) return;
+      speed = Number(b.dataset.speed);
+      b.parentElement.querySelectorAll("[data-speed]").forEach((x) => x.setAttribute("aria-checked", String(x === b)));
+    });
+    const steer = (dir) => { if (playing) lane = Math.max(0, Math.min(LANES - 1, lane + dir)); };
+    cv.addEventListener("pointerdown", (e) => { const r = cv.getBoundingClientRect(); steer(e.clientX - r.left < r.width / 2 ? -1 : 1); });
+    document.addEventListener("keydown", (e) => {
+      if (!playing || !visible) return;
+      if (e.key === "ArrowLeft" || e.key === "a") { steer(-1); e.preventDefault(); }
+      if (e.key === "ArrowRight" || e.key === "d") { steer(1); e.preventDefault(); }
+    });
+
+    const star = (x, y, r, spin) => {
+      g.beginPath();
+      for (let i = 0; i < 10; i++) { const a = spin + (i * Math.PI) / 5, rr = i % 2 ? r * 0.45 : r; g.lineTo(x + Math.sin(a) * rr, y - Math.cos(a) * rr); }
+      g.closePath();
+    };
+    const draw = (t) => {
+      const w = W(), h = H(), rl = roadL(), rw = roadW();
+      // night, verges, road
+      const sky = g.createLinearGradient(0, 0, 0, h); sky.addColorStop(0, "#0b1030"); sky.addColorStop(1, "#141a3a");
+      g.fillStyle = sky; g.fillRect(0, 0, w, h);
+      g.fillStyle = "#13261f"; g.fillRect(0, 0, rl - 6, h); g.fillRect(rl + rw + 6, 0, w - rl - rw - 6, h);
+      g.fillStyle = "#262a3b"; g.fillRect(rl, 0, rw, h);
+      g.fillStyle = "rgba(255,255,255,.75)"; g.fillRect(rl - 6, 0, 4, h); g.fillRect(rl + rw + 2, 0, 4, h);
+      g.fillStyle = "rgba(255,255,255,.55)";
+      for (let i = 1; i < LANES; i++) { const x = rl + (rw * i) / LANES - 2; for (let y = (road % 60) - 60; y < h; y += 60) g.fillRect(x, y, 4, 30); }
+      // street lamps pooling warm light on the verges
+      for (let y = (road * 1 % 220) - 220; y < h + 40; y += 220) [rl - 20, rl + rw + 20].forEach((x) => {
+        const glow = g.createRadialGradient(x, y, 0, x, y, 70); glow.addColorStop(0, "rgba(255,200,120,.45)"); glow.addColorStop(1, "rgba(255,200,120,0)");
+        g.fillStyle = glow; g.beginPath(); g.arc(x, y, 70, 0, Math.PI * 2); g.fill();
+        g.fillStyle = "#ffe2a8"; g.beginPath(); g.arc(x, y, 4, 0, Math.PI * 2); g.fill();
+      });
+      // stars to collect, cones to dodge
+      items.forEach((it) => {
+        if (it.got) return;
+        const x = laneX(it.lane);
+        if (it.type === "star") {
+          const glow = g.createRadialGradient(x, it.y, 0, x, it.y, 30); glow.addColorStop(0, "rgba(255,235,140,.6)"); glow.addColorStop(1, "rgba(255,235,140,0)");
+          g.fillStyle = glow; g.beginPath(); g.arc(x, it.y, 30, 0, Math.PI * 2); g.fill();
+          g.fillStyle = "#ffe680"; star(x, it.y, 13, t * 2); g.fill();
+        } else {
+          g.fillStyle = "#ff8a3d"; g.beginPath(); g.moveTo(x, it.y - 18); g.lineTo(x + 13, it.y + 14); g.lineTo(x - 13, it.y + 14); g.closePath(); g.fill();
+          g.fillStyle = "#fff"; g.fillRect(x - 7, it.y - 2, 14, 5);
+          g.fillStyle = "#c95a1d"; g.fillRect(x - 16, it.y + 13, 32, 5);
+        }
+      });
+      // your car, with headlights reaching up the road
+      const cy = h * 0.8, cx = carX + Math.sin(t * 30) * wobble * 4;
+      const beam = g.createLinearGradient(0, cy - 160, 0, cy - 30); beam.addColorStop(0, "rgba(255,250,210,0)"); beam.addColorStop(1, "rgba(255,250,210,.35)");
+      g.fillStyle = beam; g.beginPath(); g.moveTo(cx - 12, cy - 30); g.lineTo(cx - 46, cy - 170); g.lineTo(cx + 46, cy - 170); g.lineTo(cx + 12, cy - 30); g.closePath(); g.fill();
+      g.fillStyle = "rgba(0,0,0,.35)"; g.beginPath(); g.ellipse(cx, cy + 30, 22, 8, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#ff6f8e"; g.beginPath(); g.roundRect(cx - 19, cy - 32, 38, 64, 10); g.fill();
+      g.fillStyle = "#1b2035"; g.beginPath(); g.roundRect(cx - 14, cy - 18, 28, 14, 4); g.fill(); g.beginPath(); g.roundRect(cx - 14, cy + 10, 28, 11, 4); g.fill();
+      g.fillStyle = "#fff8d0"; g.fillRect(cx - 15, cy - 32, 8, 4); g.fillRect(cx + 7, cy - 32, 8, 4);
+      g.fillStyle = "#ff3355"; g.fillRect(cx - 15, cy + 29, 8, 3); g.fillRect(cx + 7, cy + 29, 8, 3);
+    };
+    const frame = (now) => {
+      if (!playing) return;
+      const t = (now - t0) / 1000, dt = Math.min(0.05, (now - last) / 1000); last = now;
+      const left = Math.max(0, ROUND - t), k = t / ROUND;
+      timeEl.textContent = `${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, "0")}`;
+      const v = (230 + k * 170) * speed * (slow > 0 ? 0.5 : 1);
+      slow = Math.max(0, slow - dt); wobble = Math.max(0, wobble - dt * 2);
+      road += v * dt;
+      carX += (laneX(lane) - carX) * Math.min(1, dt * 12);
+      if (t >= nextItem) {
+        const free = [0, 1, 2].filter((l) => !items.some((it) => it.lane === l && it.y < 60));
+        if (free.length) items.push({ lane: free[Math.floor(Math.random() * free.length)], y: -30, type: Math.random() < 0.62 ? "star" : "cone" });
+        nextItem = t + Math.max(0.35, 0.95 - k * 0.4) / Math.sqrt(speed) * (0.7 + Math.random() * 0.6);
+      }
+      const cy = H() * 0.8;
+      items.forEach((it) => {
+        it.y += v * dt;
+        if (!it.got && Math.abs(it.y - cy) < 34 && Math.abs(laneX(it.lane) - carX) < 30) {
+          it.got = true;
+          if (it.type === "star") { stars++; S.twinkle(); scoreEl.textContent = `${stars} star${stars === 1 ? "" : "s"}`; }
+          else { slow = 0.8; wobble = 1; S.bump(); }
+        }
+      });
+      items = items.filter((it) => it.y < H() + 40);
+      draw(t);
+      if (left <= 0) return finish();
+      if (visible && !document.hidden) requestAnimationFrame(frame); else pausedAt = performance.now();
+    };
+    const resume = () => { if (playing && pausedAt) { t0 += performance.now() - pausedAt; last = performance.now(); pausedAt = 0; requestAnimationFrame(frame); } };
+    const finish = () => {
+      playing = false;
+      const speeds = document.getElementById("rcSpeeds").outerHTML;
+      startEl.innerHTML = `<h3>${stars} star${stars === 1 ? "" : "s"} collected</h3><p>Two minutes of open road. How are you feeling now?</p>
+        ${speeds}<div class="lg-again"><button class="btn btn-solid" id="rcPlay">Drive again</button></div>`;
+      startEl.hidden = false;
+      document.getElementById("rcPlay").addEventListener("click", play);
+    };
+    function play() {
+      size(); items = []; stars = 0; lane = 1; carX = laneX(1); slow = wobble = 0; road = 0; scoreEl.textContent = "0 stars";
+      startEl.hidden = true; playing = true; pausedAt = 0; t0 = last = performance.now(); nextItem = 0.6;
+      requestAnimationFrame(frame);
+    }
+    document.getElementById("rcPlay").addEventListener("click", play);
+    new IntersectionObserver(([en]) => { visible = en.isIntersecting; if (visible) { size(); if (!playing) { carX = laneX(1); draw(0); } resume(); } }).observe(box);
+    window.addEventListener("resize", () => { size(); if (!playing) { carX = laneX(lane); draw(0); } });
+  })();
+
+  /* ---------- make a pizza: pick a topping, tap to place it, bake ---------- */
+  (() => {
+    const base = document.getElementById("pzBase"), tops = document.getElementById("pzTops"), tray = document.getElementById("pzTray"), msg = document.getElementById("pzMsg");
+    const toppings = [["pepperoni", "Pepperoni"], ["mushroom", "Mushroom"], ["olive", "Olives"], ["pepper", "Peppers"], ["basil", "Basil"],
+      ["onion", "Red onion"], ["pineapple", "Pineapple"], ["corn", "Sweetcorn"], ["tomato", "Tomato"], ["paneer", "Paneer"]];
+    let current = toppings[0][0], baked = false, baking = false;
+    tray.innerHTML = toppings.map(([k, label], i) => `<button type="button" role="radio" data-t="${k}" aria-checked="${i === 0}"><i class="tp tp-${k}"></i><span>${label}</span></button>`).join("");
+    tray.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-t]"); if (!b) return;
+      current = b.dataset.t;
+      tray.querySelectorAll("[data-t]").forEach((x) => x.setAttribute("aria-checked", String(x === b)));
+    });
+    const place = (x, y) => {
+      if (baking) return;
+      if (Math.hypot(x - 50, y - 50) > 41) return; // keep toppings off the crust
+      const t = document.createElement("i");
+      t.className = `tp tp-${current} placed`;
+      t.style.left = `${x}%`; t.style.top = `${y}%`; t.style.setProperty("--r", `${Math.round(Math.random() * 360)}deg`);
+      tops.appendChild(t);
+      S.pop(0.9);
+      if (baked) { baked = false; base.classList.remove("baked"); msg.textContent = "Adding more? Bake it again when you're ready."; }
+    };
+    base.addEventListener("click", (e) => {
+      const r = base.getBoundingClientRect();
+      place(((e.clientX - r.left) / r.width) * 100, ((e.clientY - r.top) / r.height) * 100);
+    });
+    document.getElementById("pzSprinkle").addEventListener("click", () => {
+      for (let i = 0; i < 7; i++) setTimeout(() => { const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * 38; place(50 + Math.cos(a) * d, 50 + Math.sin(a) * d); }, i * 70);
+    });
+    document.getElementById("pzBake").addEventListener("click", () => {
+      if (baking) return;
+      baking = true; base.classList.remove("baked"); base.classList.add("baking");
+      msg.textContent = "Into the oven…";
+      S.sizzle();
+      setTimeout(() => {
+        baking = false; baked = true;
+        base.classList.remove("baking"); base.classList.add("baked");
+        const n = tops.children.length;
+        const kinds = new Set([...tops.children].map((t) => t.classList[1])).size;
+        msg.textContent = n
+          ? `Golden and bubbling, with ${kinds} kind${kinds === 1 ? "" : "s"} of topping. You made that.`
+          : "A classic cheese pizza, golden and bubbling. You made that.";
+        S.chime();
+      }, 2400);
+    });
+    document.getElementById("pzNew").addEventListener("click", () => {
+      if (baking) return;
+      tops.innerHTML = ""; baked = false; base.classList.remove("baked");
+      msg.textContent = "Fresh dough, ready for toppings.";
+    });
+  })();
+
+  /* ---------- colour it in: line-art pictures where every shape can be tapped and filled ---------- */
+  (() => {
+    const art = document.getElementById("colourArt"), pal = document.getElementById("palette"), pages = document.getElementById("colourPages");
+    const colours = ["#ffffff", "#ffd1dc", "#ff8fab", "#e8455f", "#ffb38a", "#ffd166", "#fff1a8", "#c8e6a0", "#7cc68d", "#2f9e7a",
+      "#a8dcf0", "#5aa9e6", "#3d5a99", "#cdb4f5", "#9b72cf", "#8a5a44", "#f4e3c8", "#2b2540"];
+    let colour = colours[2], page = "mandala", seed = 1;
+    pal.innerHTML = colours.map((c, i) => `<button type="button" role="radio" style="--c:${c}" data-c="${c}" aria-label="${i === 0 ? "White (rubber)" : `Colour ${i}`}" aria-checked="${c === colour}"></button>`).join("");
+    pal.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-c]"); if (!b) return;
+      colour = b.dataset.c;
+      pal.querySelectorAll("[data-c]").forEach((x) => x.setAttribute("aria-checked", String(x === b)));
+    });
+    const rng = (a) => () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    const pick = (r, arr) => arr[Math.floor(r() * arr.length)];
+    const petal = (r0, r1, w) => `M0 ${-r0}C${w} ${-(r0 + (r1 - r0) * 0.25)} ${w} ${-(r0 + (r1 - r0) * 0.8)} 0 ${-r1}C${-w} ${-(r0 + (r1 - r0) * 0.8)} ${-w} ${-(r0 + (r1 - r0) * 0.25)} 0 ${-r0}Z`;
+    const ring = (n, d, off = 0) => Array.from({ length: n }, (_, i) => `<path class="rg" d="${d}" transform="translate(200 200) rotate(${off + (i * 360) / n})"/>`).join("");
+    const dots = (n, rad, size, off = 0) => Array.from({ length: n }, (_, i) => { const a = ((off + (i * 360) / n) * Math.PI) / 180; return `<circle class="rg" cx="${200 + Math.sin(a) * rad}" cy="${200 - Math.cos(a) * rad}" r="${size}"/>`; }).join("");
+    const circ = (r) => `<circle class="rg" cx="200" cy="200" r="${r}"/>`;
+    const make = {
+      mandala(r) {
+        const n1 = pick(r, [12, 14, 16, 18]), n2 = pick(r, [8, 10, 12]), n3 = pick(r, [6, 8]);
+        return `<rect class="rg" width="400" height="400"/>` + circ(192) + dots(n1, 182, 6, 180 / n1) +
+          ring(n1, petal(104, 186, 24 + r() * 8)) + ring(n1, petal(98, 160, 14), 180 / n1) + circ(108) +
+          dots(n2 * 2, 96, 5) + ring(n2, petal(48, 104, 22 + r() * 6)) + ring(n2, petal(46, 84, 11), 180 / n2) + circ(50) +
+          ring(n3, petal(14, 48, 13)) + circ(15) + `<circle class="rg" cx="200" cy="200" r="6"/>`;
+      },
+      flower(r) {
+        const n = pick(r, [8, 10, 12]), cx = 200, cy = 150;
+        const petals = Array.from({ length: n }, (_, i) => `<ellipse class="rg" cx="${cx}" cy="${cy - 52}" rx="22" ry="44" transform="rotate(${(i * 360) / n} ${cx} ${cy})"/>`).join("");
+        const small = (x, y, k) => Array.from({ length: k }, (_, i) => `<ellipse class="rg" cx="${x}" cy="${y - 14}" rx="8" ry="13" transform="rotate(${(i * 360) / k} ${x} ${y})"/>`).join("") + `<circle class="rg" cx="${x}" cy="${y}" r="7"/>`;
+        const grass = Array.from({ length: 16 }, (_, i) => { const x = i * 26 + 4; return `<path class="rg" d="M${x} 300L${x + 8} ${268 - (i % 3) * 8}L${x + 16} 300Z"/>`; }).join("");
+        const rays = Array.from({ length: 10 }, (_, i) => `<path class="rg" d="M336 22L344 4L352 22Z" transform="rotate(${i * 36} 344 64)"/>`).join("");
+        return `<rect class="rg" width="400" height="300"/><rect class="rg" y="296" width="400" height="104"/>` + rays + `<circle class="rg" cx="344" cy="64" r="28"/>` +
+          `<path class="rg" d="M40 80a22 22 0 0 1 40-12a26 26 0 0 1 48 8a18 18 0 0 1 2 34H44a20 20 0 0 1-4-30z"/>` +
+          `<path class="rg" d="M194 196C190 250 204 300 198 360h10C214 300 200 250 206 196z"/>` +
+          `<path class="rg" d="M202 268C230 236 270 232 292 246C268 272 230 282 202 268z"/><path class="rg" d="M200 300C172 270 132 268 110 282C134 306 172 314 200 300z"/>` +
+          grass + petals + `<circle class="rg" cx="${cx}" cy="${cy}" r="30"/><circle class="rg" cx="${cx}" cy="${cy}" r="14"/>` +
+          small(70, 330, 5 + Math.floor(r() * 2)) + small(330, 340, 5 + Math.floor(r() * 2)) + small(285, 315, 6);
+      },
+      butterfly(r) {
+        const spots = (side) => Array.from({ length: 3 + Math.floor(r() * 2) }, (_, i) => {
+          const x = 200 + side * (60 + i * 26 + r() * 10), y = 140 + i * 14 + r() * 20;
+          return `<circle class="rg" cx="${x}" cy="${y}" r="${9 + r() * 7}"/>`;
+        }).join("");
+        const wing = (side) => {
+          const s = (x) => 200 + side * x;
+          return `<path class="rg" d="M${s(8)} 190C${s(40)} 120 ${s(110)} 50 ${s(170)} 70C${s(200)} 90 ${s(180)} 160 ${s(130)} 196C${s(90)} 214 ${s(40)} 210 ${s(8)} 200Z"/>` +
+            `<path class="rg" d="M${s(20)} 188C${s(50)} 140 ${s(100)} 100 ${s(140)} 108C${s(150)} 140 ${s(120)} 176 ${s(80)} 192Z"/>` +
+            `<path class="rg" d="M${s(8)} 208C${s(50)} 212 ${s(130)} 220 ${s(140)} 270C${s(146)} 316 ${s(90)} 330 ${s(60)} 300C${s(36)} 276 ${s(20)} 240 ${s(8)} 214Z"/>` +
+            `<path class="rg" d="M${s(26)} 222C${s(60)} 226 ${s(110)} 240 ${s(112)} 270C${s(112)} 296 ${s(80)} 296 ${s(64)} 276Z"/>` + spots(side);
+        };
+        return `<rect class="rg" width="400" height="400"/>` + wing(-1) + wing(1) +
+          `<path class="ln" d="M196 120C188 96 176 80 160 70M204 120C212 96 224 80 240 70"/><circle class="rg" cx="160" cy="70" r="5"/><circle class="rg" cx="240" cy="70" r="5"/>` +
+          `<ellipse class="rg" cx="200" cy="210" rx="9" ry="78"/><circle class="rg" cx="200" cy="124" r="13"/>`;
+      },
+    };
+    const draw = () => {
+      art.innerHTML = `<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A ${page} to colour in">${make[page](rng(seed))}</svg>`;
+    };
+    art.addEventListener("click", (e) => {
+      const shape = e.target.closest(".rg"); if (!shape) return;
+      shape.style.fill = colour;
+      S.pop(0.95);
+    });
+    pages.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-page]"); if (!b) return;
+      page = b.dataset.page;
+      pages.querySelectorAll("[data-page]").forEach((x) => x.setAttribute("aria-checked", String(x === b)));
+      draw();
+    });
+    document.getElementById("colourNew").addEventListener("click", () => { seed = Math.floor(Math.random() * 1e9); draw(); });
+    document.getElementById("colourClear").addEventListener("click", () => art.querySelectorAll(".rg").forEach((el) => { el.style.fill = ""; }));
+    // save as a picture: the drawing is turned into a PNG the browser downloads
+    document.getElementById("colourSave").addEventListener("click", () => {
+      const svg = art.querySelector("svg").cloneNode(true);
+      svg.setAttribute("width", "1200"); svg.setAttribute("height", "1200");
+      svg.querySelectorAll(".rg").forEach((el) => { el.setAttribute("fill", el.style.fill || "#ffffff"); el.setAttribute("stroke", "#2b2540"); el.setAttribute("stroke-width", "1.6"); el.setAttribute("stroke-linejoin", "round"); });
+      svg.querySelectorAll(".ln").forEach((el) => { el.setAttribute("fill", "none"); el.setAttribute("stroke", "#2b2540"); el.setAttribute("stroke-width", "2"); });
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement("canvas"); c.width = c.height = 1200;
+        c.getContext("2d").drawImage(img, 0, 0);
+        c.toBlob((blob) => {
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob); a.download = `bloom-${page}.png`;
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+        });
+      };
+      img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(new XMLSerializer().serializeToString(svg));
+    });
+    draw();
+  })();
+
+  /* ---------- something gentle to watch, and a karaoke zone ---------- */
+  (() => {
+    const yt = (q) => `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
+    const groups = [
+      { title: "Breathe and settle", note: "Short guided meditations for anxious moments.", more: ["More meditations", yt("10 minute guided meditation for anxiety")],
+        videos: [["syx3a1_LeFo", "Daily Calm: 10-minute mindfulness, letting go", "Calm"], ["sG7DBA-mgFY", "10-minute meditation to reframe stress", "Headspace"], ["O-6f5wQXSu8", "10-minute meditation for anxiety", "Goodful"]] },
+      { title: "Drift off with Michael Sealey", note: "Gentle sleep hypnotherapy. Listen lying down — never while driving.", more: ["Michael Sealey's channel", "https://www.youtube.com/@MichaelSealey"],
+        videos: [["hvOgpzRJxJg", "Sleep hypnosis for anxiety reduction", "Michael Sealey"], ["twJyV6EX49E", "Sleep hypnosis to calm an anxious mind", "Michael Sealey"], ["L15yjmB7uHM", "Fall asleep fast, release all thoughts (rain)", "Michael Sealey"]] },
+      { title: "Just smile", note: "Giggling babies and very small dogs. Medicine of a different kind.", more: ["More cute videos", yt("cute puppies and babies laughing compilation")],
+        videos: [["ZndDultZUKg", "Babies laughing with pets", "The Pet Collective"], ["TisotBmWaps", "The best baby laughing compilation", "5-Minute Fails"], ["pxn0wL_uSm4", "30 minutes of the cutest puppies", "The Pet Collective"]] },
+    ];
+    document.getElementById("watchGroups").innerHTML = groups.map((gr) => `<div class="watch-group reveal">
+        <div class="wg-head"><div><h3>${esc(gr.title)}</h3><p>${esc(gr.note)}</p></div><a class="chip" href="${esc(gr.more[1])}" target="_blank" rel="noopener">${esc(gr.more[0])} ↗</a></div>
+        <div class="vids">${gr.videos.map(([id, title, by]) => `<a class="vid" href="https://www.youtube.com/watch?v=${id}" target="_blank" rel="noopener">
+          <span class="vid-thumb"><img src="https://i.ytimg.com/vi/${id}/hqdefault.jpg" alt="" loading="lazy"><i class="vid-play" aria-hidden="true"></i></span>
+          <span class="vid-title">${esc(title)}</span><span class="vid-by">${esc(by)}</span></a>`).join("")}</div></div>`).join("");
+
+    const songs = [["Closer", "The Chainsmokers ft. Halsey"], ["Cheap Thrills", "Sia"], ["Cake by the Ocean", "DNCE"], ["Can't Stop the Feeling!", "Justin Timberlake"],
+      ["This Is What You Came For", "Calvin Harris ft. Rihanna"], ["Work from Home", "Fifth Harmony"], ["Treat You Better", "Shawn Mendes"], ["Into You", "Ariana Grande"],
+      ["Send My Love (To Your New Lover)", "Adele"], ["Starboy", "The Weeknd ft. Daft Punk"], ["Don't Let Me Down", "The Chainsmokers ft. Daya"], ["Love Yourself", "Justin Bieber"],
+      ["Hymn for the Weekend", "Coldplay"], ["7 Years", "Lukas Graham"], ["Side to Side", "Ariana Grande ft. Nicki Minaj"], ["Cold Water", "Major Lazer ft. Justin Bieber & MØ"]];
+    const list = document.getElementById("karList");
+    list.innerHTML = songs.map(([t, a]) => `<li><a href="${esc(yt(`${t} ${a} karaoke lyrics`))}" target="_blank" rel="noopener">
+        <span class="kar-title">${esc(t)}</span><span class="kar-artist">${esc(a)}</span><span class="kar-go" aria-hidden="true">Sing ↗</span></a></li>`).join("");
+    document.getElementById("karShuffle").addEventListener("click", () => {
+      const items = [...list.children];
+      items.forEach((li) => li.classList.remove("picked"));
+      let n = 0;
+      const pick = Math.floor(Math.random() * items.length), spins = 10 + pick;
+      const tick = () => {                                           // a little spotlight roulette before it lands
+        items.forEach((li) => li.classList.remove("flash"));
+        items[n % items.length].classList.add("flash");
+        S.key(true);
+        if (n < spins) { n++; setTimeout(tick, 40 + n * 6); }
+        else { items[n % items.length].classList.remove("flash"); items[n % items.length].classList.add("picked"); items[n % items.length].querySelector("a").focus({ preventScroll: true }); S.chime(); }
+      };
+      tick();
+    });
   })();
 
   /* ---------- resources: community, bookshelf, podcasts, research ---------- */
@@ -1174,20 +1574,22 @@
     const R = window.BLOOM_RESOURCES;
     if (!R) return;
     document.getElementById("commList").innerHTML = R.communities.map((c) =>
-      `<a class="comm reveal" href="${esc(c.url)}" target="_blank" rel="noopener"><h3>${esc(c.name)}</h3><p>${esc(c.desc)}</p><span class="go">Open on Reddit ↗</span></a>`).join("");
+      `<a class="comm reveal" href="${esc(c.url)}" target="_blank" rel="noopener"><span class="logo reddit" aria-hidden="true">r/</span><h3>${esc(c.name)}</h3><p>${esc(c.desc)}</p><span class="go">Open on Reddit ↗</span></a>`).join("");
     document.getElementById("shelf").innerHTML = R.books.map((b) =>
       `<a class="book" href="${esc(b.url || `https://openlibrary.org/isbn/${b.isbn}`)}" target="_blank" rel="noopener">
         <span class="cover"><img src="${esc(b.cover || `https://covers.openlibrary.org/b/isbn/${b.isbn}-L.jpg`)}" alt="Cover of ${esc(b.title)}" loading="lazy"></span>
         <h3>${esc(b.title)}</h3><p class="by">${esc(b.author)}</p><p>${esc(b.note)}</p></a>`).join("");
     document.getElementById("podList").innerHTML = R.podcasts.map((p) =>
       `<a class="pod reveal" href="${esc(p.url)}" target="_blank" rel="noopener">
-        <span class="pod-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M7 15.5c3-1 7-.8 10 .6M6.5 12.3c3.5-1.2 8-1 11.5.8M6 9c4-1.4 9-1.1 13 1"/></svg></span>
+        <span class="pod-cover"><img src="${esc(p.cover)}" alt="" loading="lazy"></span>
         <span class="pod-body"><h3>${esc(p.name)}</h3><p class="by">${esc(p.host)}</p><p>${esc(p.desc)}</p></span>
         <span class="go">Listen on Spotify ↗</span></a>`).join("");
     document.getElementById("papers").innerHTML = R.research.map((r) =>
       `<li class="paper reveal"><span class="topic">${esc(r.topic)}</span>
-        <a href="https://doi.org/${esc(r.doi)}" target="_blank" rel="noopener">${esc(r.title)}</a>
-        <p>${esc(r.authors)} · <i>${esc(r.journal)}</i>, ${r.year}</p></li>`).join("");
+        <h3>${esc(r.title)}</h3>
+        <p class="plain">${esc(r.plain)}</p>
+        <p class="meta">${esc(r.authors)} · ${esc(r.journal)} · ${r.year}</p>
+        <a class="chip" href="https://doi.org/${esc(r.doi)}" target="_blank" rel="noopener">Read the paper ↗</a></li>`).join("");
 
     // drag the bookshelf sideways like a real shelf (touch already scrolls natively)
     const shelf = document.getElementById("shelf");
@@ -1331,4 +1733,58 @@
     notes.push(rec); persist(); place(rec); S.paper(0.4);
     input.value = "";
   });
+
+  /* ---------- gentle email check-ins and pay-what-you-can donations (settings live in shared/config.js) ---------- */
+  (() => {
+    const C = window.BLOOM_CONFIG || {};
+    const form = document.getElementById("stayForm"), smsg = document.getElementById("stayMsg");
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (!C.emailFormAction) {
+        smsg.textContent = "Thank you for wanting to stay in touch. Email check-ins are opening very soon — your address hasn't been saved or sent anywhere yet.";
+        return;
+      }
+      // hand the sign-up to the email service in a new tab, so its own confirmation step can run
+      const f = document.createElement("form");
+      f.method = "post"; f.action = C.emailFormAction; f.target = "_blank";
+      const add = (name, value) => { const i = document.createElement("input"); i.type = "hidden"; i.name = name; i.value = value; f.appendChild(i); };
+      add("email", form.email.value.trim());
+      if (form.checkin.checked) add("tag", "check-in");
+      if (form.updates.checked) add("tag", "updates");
+      document.body.appendChild(f); f.submit(); f.remove();
+      smsg.textContent = "Nearly there — check your inbox to confirm. Thank you for being here.";
+      form.reset();
+    });
+
+    const currencies = { USD: ["$", [3, 5, 10, 25]], GBP: ["£", [3, 5, 10, 25]], EUR: ["€", [3, 5, 10, 25]], INR: ["₹", [100, 250, 500, 1000]], AUD: ["A$", [5, 10, 20, 40]], CAD: ["C$", [5, 10, 20, 40]] };
+    const zone = (Intl.DateTimeFormat().resolvedOptions().timeZone || ""), lang = navigator.language || "";
+    let cur = /Kolkata|Calcutta/.test(zone) ? "INR" : /London/.test(zone) || /-GB/.test(lang) ? "GBP" : /^Australia/.test(zone) ? "AUD"
+      : /Toronto|Vancouver|Edmonton|Winnipeg|Halifax/.test(zone) ? "CAD" : /^Europe/.test(zone) ? "EUR" : "USD";
+    let amount = null;
+    const curEl = document.getElementById("currency"), amtEl = document.getElementById("amounts"), custom = document.getElementById("customAmt");
+    const dmsg = document.getElementById("donateMsg"), upiBtn = document.getElementById("payUpi");
+    const render = () => {
+      const [sym, list] = currencies[cur];
+      curEl.innerHTML = Object.keys(currencies).map((k) => `<button type="button" role="radio" data-cur="${k}" aria-checked="${k === cur}">${k}</button>`).join("");
+      amtEl.innerHTML = list.map((a) => `<button type="button" role="radio" data-amt="${a}" aria-checked="${a === amount}">${sym}${a}</button>`).join("");
+      document.getElementById("curSym").textContent = sym;
+      upiBtn.hidden = !(cur === "INR" && C.upiId);
+    };
+    curEl.addEventListener("click", (e) => { const b = e.target.closest("[data-cur]"); if (!b) return; cur = b.dataset.cur; amount = null; custom.value = ""; render(); });
+    amtEl.addEventListener("click", (e) => { const b = e.target.closest("[data-amt]"); if (!b) return; amount = Number(b.dataset.amt); custom.value = ""; render(); });
+    custom.addEventListener("input", () => { amount = Number(custom.value) > 0 ? Number(custom.value) : null; amtEl.querySelectorAll("[data-amt]").forEach((x) => x.setAttribute("aria-checked", "false")); });
+    const soon = () => { dmsg.textContent = "Thank you so much for thinking of it. Donations are opening very soon."; };
+    document.getElementById("payPal").addEventListener("click", () => {
+      if (!C.paypalMe) return soon();
+      const url = `https://www.paypal.com/paypalme/${encodeURIComponent(C.paypalMe)}${amount ? `/${amount}${cur}` : ""}`;
+      window.open(url, "_blank", "noopener");
+      dmsg.textContent = "PayPal has opened in a new tab. Thank you — truly.";
+    });
+    upiBtn.addEventListener("click", () => {
+      if (!C.upiId) return soon();
+      location.href = `upi://pay?pa=${encodeURIComponent(C.upiId)}&pn=${encodeURIComponent(C.upiName || "Bloom Within")}&cu=INR${amount ? `&am=${amount}` : ""}`;
+      dmsg.textContent = "Opening your UPI app… (this works on phones with a UPI app installed). Thank you!";
+    });
+    render();
+  })();
 })();

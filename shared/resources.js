@@ -20,22 +20,22 @@ window.BLOOM_RESOURCES = {
   ],
 
   podcasts: [
-    { name: "Food Psych", host: "Christy Harrison", desc: "A dietitian on making peace with food, body acceptance and leaving diet culture behind.", url: "https://open.spotify.com/show/0GS2IhAsxrGXi4rfBP3nNh" },
-    { name: "Dr. Marianne-Land", host: "Eating disorder therapist", desc: "An eating disorder therapist who recovered from a 25-year eating disorder, with expert interviews and solo episodes.", url: "https://open.spotify.com/show/0Km8nFEjQOoV7zXzifJcAQ" },
-    { name: "Fly To Freedom", host: "Anorexia recovery", desc: "Q&As on fear of weight gain, extreme hunger, trauma and choosing recovery.", url: "https://open.spotify.com/show/0EuUm7VHWmLIBhyrQ0HuD4" },
-    { name: "Brain over Binge Podcast", host: "Kathryn Hansen", desc: "Practical guidance on stopping binge eating without dieting, plus listener recovery stories.", url: "https://open.spotify.com/show/6LUcZST0B3x2lT89tsDNQY" },
-    { name: "The Recovery Feed", host: "Lived experience", desc: "Two hosts with lived experience widening the conversation so recovery feels possible.", url: "https://open.spotify.com/show/2mOuXvT6QtLI2oYV0UYc9m" },
-    { name: "Understanding Disordered Eating", host: "Recovery & body image", desc: "Explores the reasons underneath eating disorder behaviours, and how body image heals.", url: "https://open.spotify.com/show/5ZAAscK7byPAQ4g6hvWHLh" },
+    { name: "Food Psych", cover: "images/logos/pod-food-psych.jpg", host: "Christy Harrison", desc: "A dietitian on making peace with food, body acceptance and leaving diet culture behind.", url: "https://open.spotify.com/show/0GS2IhAsxrGXi4rfBP3nNh" },
+    { name: "Dr. Marianne-Land", cover: "images/logos/pod-marianne-land.jpg", host: "Eating disorder therapist", desc: "An eating disorder therapist who recovered from a 25-year eating disorder, with expert interviews and solo episodes.", url: "https://open.spotify.com/show/0Km8nFEjQOoV7zXzifJcAQ" },
+    { name: "Fly To Freedom", cover: "images/logos/pod-fly-to-freedom.jpg", host: "Anorexia recovery", desc: "Q&As on fear of weight gain, extreme hunger, trauma and choosing recovery.", url: "https://open.spotify.com/show/0EuUm7VHWmLIBhyrQ0HuD4" },
+    { name: "Brain over Binge Podcast", cover: "images/logos/pod-brain-over-binge.jpg", host: "Kathryn Hansen", desc: "Practical guidance on stopping binge eating without dieting, plus listener recovery stories.", url: "https://open.spotify.com/show/6LUcZST0B3x2lT89tsDNQY" },
+    { name: "The Recovery Feed", cover: "images/logos/pod-recovery-feed.jpg", host: "Lived experience", desc: "Two hosts with lived experience widening the conversation so recovery feels possible.", url: "https://open.spotify.com/show/2mOuXvT6QtLI2oYV0UYc9m" },
+    { name: "Understanding Disordered Eating", cover: "images/logos/pod-understanding.jpg", host: "Recovery & body image", desc: "Explores the reasons underneath eating disorder behaviours, and how body image heals.", url: "https://open.spotify.com/show/5ZAAscK7byPAQ4g6hvWHLh" },
   ],
 
   research: [
-    { topic: "Overview", title: "Eating disorders", authors: "Treasure J, Duarte TA, Schmidt U", journal: "The Lancet", year: 2020, doi: "10.1016/S0140-6736(20)30059-3" },
-    { topic: "Anorexia", title: "Anorexia nervosa: aetiology, assessment, and treatment", authors: "Zipfel S et al.", journal: "The Lancet Psychiatry", year: 2015, doi: "10.1016/S2215-0366(15)00356-9" },
-    { topic: "Bulimia", title: "Bulimia nervosa and treatment-related disparities: a review", authors: "Wilson K, Kagabo R", journal: "Frontiers in Psychology", year: 2024, doi: "10.3389/fpsyg.2024.1386347" },
-    { topic: "Binge eating disorder", title: "Binge eating disorder", authors: "Giel KE et al.", journal: "Nature Reviews Disease Primers", year: 2022, doi: "10.1038/s41572-022-00344-y" },
-    { topic: "ARFID", title: "Avoidant/Restrictive Food Intake Disorder: a three-dimensional model of neurobiology with implications for etiology and treatment", authors: "Thomas JJ et al.", journal: "Current Psychiatry Reports", year: 2017, doi: "10.1007/s11920-017-0795-5" },
-    { topic: "OSFED", title: "Other Specified Feeding or Eating Disorders (OSFED): clinical heterogeneity and cognitive-behavioral therapy outcome", authors: "Riesco N et al.", journal: "European Psychiatry", year: 2018, doi: "10.1016/j.eurpsy.2018.08.001" },
-    { topic: "Trauma", title: "Eating disorders, trauma, and comorbidity: focus on PTSD", authors: "Brewerton TD", journal: "Eating Disorders", year: 2007, doi: "10.1080/10640260701454311" },
+    { topic: "Overview", plain: "A broad look at what eating disorders are, who they affect, what causes them and how they're treated.", title: "Eating disorders", authors: "Treasure J, Duarte TA, Schmidt U", journal: "The Lancet", year: 2020, doi: "10.1016/S0140-6736(20)30059-3" },
+    { topic: "Anorexia", plain: "What causes anorexia, how doctors assess it, and which treatments help people recover.", title: "Anorexia nervosa: aetiology, assessment, and treatment", authors: "Zipfel S et al.", journal: "The Lancet Psychiatry", year: 2015, doi: "10.1016/S2215-0366(15)00356-9" },
+    { topic: "Bulimia", plain: "Why some people with bulimia find it harder to get treatment, and how care could be fairer.", title: "Bulimia nervosa and treatment-related disparities: a review", authors: "Wilson K, Kagabo R", journal: "Frontiers in Psychology", year: 2024, doi: "10.3389/fpsyg.2024.1386347" },
+    { topic: "Binge eating disorder", plain: "What's known about binge eating disorder — from causes and brain science to treatment.", title: "Binge eating disorder", authors: "Giel KE et al.", journal: "Nature Reviews Disease Primers", year: 2022, doi: "10.1038/s41572-022-00344-y" },
+    { topic: "ARFID", plain: "How fear, low interest in eating and sensory sensitivity can each drive ARFID, and what that means for treatment.", title: "Avoidant/Restrictive Food Intake Disorder: a three-dimensional model of neurobiology with implications for etiology and treatment", authors: "Thomas JJ et al.", journal: "Current Psychiatry Reports", year: 2017, doi: "10.1007/s11920-017-0795-5" },
+    { topic: "OSFED", plain: "How different OSFED can look from person to person, and how well talking therapy (CBT) works for it.", title: "Other Specified Feeding or Eating Disorders (OSFED): clinical heterogeneity and cognitive-behavioral therapy outcome", authors: "Riesco N et al.", journal: "European Psychiatry", year: 2018, doi: "10.1016/j.eurpsy.2018.08.001" },
+    { topic: "Trauma", plain: "How often trauma and PTSD happen alongside eating disorders, and why treating both matters.", title: "Eating disorders, trauma, and comorbidity: focus on PTSD", authors: "Brewerton TD", journal: "Eating Disorders", year: 2007, doi: "10.1080/10640260701454311" },
   ],
 };
 
