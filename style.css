@@ -54,6 +54,19 @@ h1, h2, h3, .close-big { font-family: var(--display); font-weight: 600; letter-s
 .sky { position: fixed; inset: 0; z-index: -1; overflow: hidden; background: #05060f; }
 .sky-layer { position: absolute; inset: -4%; width: 108%; height: 108%; max-width: none; object-fit: cover; opacity: 0; will-change: transform, opacity; }
 .sky-layer:first-child { opacity: 1; }
+/* Vanta fog renders on black; screen blending drops the black so only the glowing mist shows */
+.mist { position: absolute; inset: 0; opacity: 0; mix-blend-mode: screen; pointer-events: none; }
+.mist canvas { width: 100% !important; height: 100% !important; }
+
+/* Lenis */
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+.lenis.lenis-stopped { overflow: hidden; }
+
+/* blur-text words keep their own line breaks and spacing */
+.w { display: inline-block; }
+
 .sky-scrim { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5, 6, 15, .55), rgba(5, 6, 15, .25) 40%, rgba(5, 6, 15, .5)); transition: background .8s ease; }
 html.day .sky-scrim { background: linear-gradient(180deg, rgba(246, 248, 255, .35), rgba(246, 248, 255, .15) 50%, rgba(246, 248, 255, .45)); }
 

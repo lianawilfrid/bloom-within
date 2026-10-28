@@ -65,6 +65,83 @@
   if (hasGSAP) gsap.registerPlugin(ScrollTrigger);
   let ctx;
 
+  /* ---------- Lenis: weighted, smooth scrolling that drives ScrollTrigger from GSAP's own clock ---------- */
+  let lenis = null;
+  const lenisTick = (time) => lenis && lenis.raf(time * 1000);
+  const setSmoothScroll = (on) => {
+    if (!window.Lenis || !hasGSAP) return;
+    if (on && !lenis) {
+      lenis = new Lenis({ duration: 1.15, easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), smoothWheel: true });
+      lenis.on("scroll", ScrollTrigger.update);
+      gsap.ticker.add(lenisTick);
+      gsap.ticker.lagSmoothing(0);
+    } else if (!on && lenis) {
+      gsap.ticker.remove(lenisTick);
+      lenis.destroy();
+      lenis = null;
+    }
+  };
+  // In-page links glide with Lenis instead of jumping.
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest('a[href^="#"]');
+    if (!a || !lenis) return;
+    const target = a.getAttribute("href") === "#top" ? 0 : document.querySelector(a.getAttribute("href"));
+    if (target === null) return;
+    e.preventDefault();
+    lenis.scrollTo(target, { duration: 1.6 });
+  });
+
+  /* ---------- Blur text (after React Bits' BlurText): words come into focus one by one ---------- */
+  const splitWords = (el) => {
+    if (el.dataset.split) return el.querySelectorAll(".w");
+    el.dataset.split = "1";
+    el.setAttribute("aria-label", el.textContent.replace(/\s+/g, " ").trim());
+    [...el.childNodes].forEach((node) => {
+      if (node.nodeType !== Node.TEXT_NODE) return;
+      const frag = document.createDocumentFragment();
+      node.textContent.split(/(\s+)/).forEach((part) => {
+        if (!part) return;
+        if (/^\s+$/.test(part)) { frag.appendChild(document.createTextNode(" ")); return; }
+        const w = document.createElement("span");
+        w.className = "w"; w.setAttribute("aria-hidden", "true"); w.textContent = part;
+        frag.appendChild(w);
+      });
+      node.replaceWith(frag);
+    });
+    return el.querySelectorAll(".w");
+  };
+  const blurIn = (words, vars = {}) => gsap.fromTo(words,
+    { opacity: 0, filter: "blur(12px)", y: "0.3em" },
+    { opacity: 1, filter: "blur(0px)", y: 0, duration: 1, stagger: 0.07, ease: "power3.out", clearProps: "filter", ...vars });
+
+  /* ---------- Vanta fog: faint, drifting mist blended over the real photographs at blue hour and dawn ---------- */
+  let mist = null;
+  const loadScript = (src) => new Promise((res, rej) => {
+    if (document.querySelector(`script[src="${src}"]`)) return res();
+    const s = document.createElement("script");
+    s.src = src; s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+  const setMist = async (on) => {
+    // WebGL fog is costly: desktop pointers only, and never in calm mode.
+    const capable = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+    if (on && capable && !mist) {
+      try {
+        await loadScript("https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js");
+        await loadScript("https://cdnjs.cloudflare.com/ajax/libs/vanta/0.5.24/vanta.fog.min.js");
+        if (isCalm() || mist) return;
+        mist = window.VANTA.FOG({
+          el: "#mist", mouseControls: false, touchControls: false, gyroControls: false,
+          highlightColor: 0xffc9a6, midtoneColor: 0x8a8fc0, lowlightColor: 0x262a55, baseColor: 0x000000,
+          blurFactor: 0.72, speed: 0.7, zoom: 0.65,
+        });
+      } catch (e) { /* the photographs carry the page on their own */ }
+    } else if (!on && mist) {
+      mist.destroy();
+      mist = null;
+    }
+  };
+
   function build() {
     if (!hasGSAP) {
       // GSAP failed to load: show everything as a plain page.
@@ -73,6 +150,8 @@
     }
     if (ctx) ctx.revert();
     const still = isCalm();
+    setSmoothScroll(!still);
+    setMist(!still);
     ctx = gsap.context(() => {
       // 1. The sky: each photograph fades in over the last, midnight → morning.
       const layers = gsap.utils.toArray(".sky-layer");
@@ -87,6 +166,17 @@
         sky.to(layer, { opacity: 1, duration: 1 }, i);
         if (!still) sky.fromTo(layer, { scale: 1.08 }, { scale: 1, duration: 2 }, i);
       });
+      // mist gathers in the blue hour, glows at sunrise, and burns off by morning
+      sky.fromTo("#mist", { opacity: 0 }, { opacity: 0.6, duration: 1.2 }, 0.5)
+        .to("#mist", { opacity: 0, duration: 1.2 }, 2.6);
+
+      // Headings come into focus word by word, like eyes adjusting to the light.
+      if (!still) {
+        blurIn(splitWords(document.querySelector(".hero-copy h1")), { delay: 0.15 });
+        gsap.utils.toArray(".chapter-head h2, .close-big").forEach((h) => {
+          blurIn(splitWords(h), { scrollTrigger: { trigger: h, start: "top 86%", once: true } });
+        });
+      }
 
       // 2. Intro: the full-screen night photo settles into its place in the grid.
       const intro = document.getElementById("intro");
